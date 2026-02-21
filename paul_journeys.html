@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travels of Paul</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; }
+        svg { display: block; width: 100vw; height: 100vh; }
+
+        /* ── Layer 1: Sea ── */
+        #layer-sea { }
+        .sea-bg { fill: #1a3a5c; }
+
+        /* ── Layer 3: Provinces ── */
+        #layer-provinces .province { pointer-events: none; }
+        #layer-provinces .prov-label {
+            font-size: 9px;
+            fill: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            font-style: italic;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        #layer-land { }
+        #layer-land path {
+            fill: #c8b89a;
+            stroke: #a09070;
+            stroke-width: 0.5;
+            stroke-linejoin: round;
+        }
+
+        /* ── Layer 4: Cities ── */
+        .city-group { cursor: pointer; }
+        .city-dot {
+            fill: #fff;
+            stroke: #e74c3c;
+            stroke-width: 1.5;
+            transition: r 0.2s;
+        }
+        .city-group:hover .city-dot { r: 5; fill: #e74c3c; }
+        .city-pulse {
+            fill: none;
+            stroke: #e74c3c;
+            stroke-width: 1;
+            opacity: 0;
+        }
+        .city-label {
+            font-size: 8px;
+            fill: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            pointer-events: none;
+            text-shadow: 0 0 3px #000;
+        }
+
+        /* ── Layer 5: Routes ── */
+        .journey-path { pointer-events: none; }
+
+        /* ── Info Panel ── */
+        #info-panel { 
+            opacity: 0; 
+            transition: opacity 0.3s ease;
+        }
+        #info-panel.visible { opacity: 1; }
+        .info-bg { 
+            fill: rgba(0,0,0,0.75); 
+            rx: 8; 
+        }
+        .info-text {
+            font-family: 'Segoe UI', sans-serif;
+            pointer-events: none;
+        }
+        .journey-badge { 
+            font-size: 12px; 
+            font-weight: bold; 
+            fill: #000;
+        }
+        .city-name { 
+            font-size: 16px; 
+            font-weight: bold; 
+            fill: #fff;
+        }
+        .reference { 
+            font-size: 11px; 
+            fill: #ffd700;
+        }
+        .event-text { 
+            font-size: 10px; 
+            fill: #ccc;
+        }
+        .close-btn { 
+            cursor: pointer; 
+            fill: #999; 
+            font-size: 14px;
+        }
+        .close-btn:hover { fill: #fff; }
+
+        /* ── UI Controls ── */
+        .ui-btn { 
+            cursor: pointer; 
+            fill: #333; 
+            stroke: #666; 
+            stroke-width: 1;
+        }
+        .ui-btn:hover { fill: #555; }
+        .ui-btn.active { fill: #666; }
+        .ui-btn-text { 
+            font-family: 'Segoe UI', sans-serif; 
+            font-size: 12px; 
+            fill: #fff; 
+            pointer-events: none;
+        }
+        .journey-btn { font-size: 10px; }
+        
+        /* ── Traveler Icon ── */
+        #traveler { pointer-events: none; }
+
+        /* Walking animation — arms and legs swing opposite phase */
+        @keyframes swing-arm-l { 0%,100%{transform:rotate(-20deg)} 50%{transform:rotate(20deg)} }
+        @keyframes swing-arm-r { 0%,100%{transform:rotate(20deg)}  50%{transform:rotate(-20deg)} }
+        @keyframes swing-leg-l { 0%,100%{transform:rotate(-18deg)} 50%{transform:rotate(18deg)} }
+        @keyframes swing-leg-r { 0%,100%{transform:rotate(18deg)}  50%{transform:rotate(-18deg)} }
+        .walk-arm-l { transform-origin:0 0; animation: swing-arm-l 0.55s ease-in-out infinite; }
+        .walk-arm-r { transform-origin:0 0; animation: swing-arm-r 0.55s ease-in-out infinite; }
+        .walk-leg-l { transform-origin:0 0; animation: swing-leg-l 0.55s ease-in-out infinite; }
+        .walk-leg-r { transform-origin:0 0; animation: swing-leg-r 0.55s ease-in-out infinite; }
+
+        /* ── Layer 8: Event Effects ── */
+        @keyframes rock-fly { 0%{opacity:1} 80%{opacity:1} 100%{opacity:0;transform:translate(0,0) scale(0.3)} }
+        @keyframes beam-fade { 0%{opacity:0.9} 100%{opacity:0} }
+        @keyframes dark-spread { 0%{r:3;opacity:0.9} 100%{r:35;opacity:0} }
+        @keyframes church-rise { 0%{opacity:0;transform:translateY(8px)} 30%{opacity:1;transform:translateY(0)} 80%{opacity:1} 100%{opacity:0} }
+        @keyframes ray-grow { 0%{opacity:0;transform:scaleX(0)} 30%{opacity:0.9;transform:scaleX(1)} 80%{opacity:0.7} 100%{opacity:0} }
+        @keyframes crowd-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+        @keyframes speech-ring { 0%{r:2;opacity:0.8;stroke-width:2} 100%{r:22;opacity:0;stroke-width:0.5} }
+        @keyframes flame-flicker { 0%,100%{transform:scaleY(1) scaleX(1);opacity:0.9} 33%{transform:scaleY(1.3) scaleX(0.8);opacity:1} 66%{transform:scaleY(0.8) scaleX(1.2);opacity:0.7} }
+        @keyframes tornado-spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        @keyframes traveler-shake { 0%,100%{transform:translate(0,0)} 10%{transform:translate(-3px,-1px)} 20%{transform:translate(3px,2px)} 30%{transform:translate(-4px,1px)} 40%{transform:translate(4px,-2px)} 50%{transform:translate(-2px,3px)} 60%{transform:translate(3px,-1px)} 70%{transform:translate(-3px,2px)} 80%{transform:translate(2px,-3px)} 90%{transform:translate(-1px,1px)} }
+        @keyframes dove-fly { 0%{transform:translate(-15px,5px) scale(0.5);opacity:0} 40%{opacity:1} 100%{transform:translate(15px,-10px) scale(1);opacity:0} }
+        @keyframes funnel-sway { 0%,100%{transform:rotate(-3deg)} 50%{transform:rotate(3deg)} }
+
+        /* ── Event Scene Panel ── */
+        #event-scene { transform-box: fill-box; transform-origin: right center; }
+        @keyframes ep-in  { from{transform:translateX(265px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes ep-out { 0%{transform:translateX(0);opacity:1} 100%{transform:translateX(265px);opacity:0} }
+        .ep-in  { animation: ep-in  0.45s cubic-bezier(0.22,1,0.36,1) both; }
+        .ep-out { animation: ep-out 0.35s ease-in both; }
+
+        /* Mode-switch pop transition */
+        @keyframes mode-pop {
+          0%   { opacity:0; transform:scale(0.2); }
+          60%  { transform:scale(1.3); }
+          100% { opacity:1; transform:scale(1); }
+        }
+        .mode-pop { animation: mode-pop 0.4s cubic-bezier(.36,.07,.19,.97) forwards; }
+    </style>
+</head>
+<body>
+<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 1: SEA                                -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="layer-sea">
+        <rect class="sea-bg" width="800" height="500" />
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 2: LAND (from Natural Earth 110m)     -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="layer-land">
+      <path d="M452.4,217.1L440.9,223.5L442.1,226.4L442.6,227.6L425.2,233.8L416.9,231.8L412.9,225.7L421.0,225.2L422.2,225.1L424.6,221.4L436.9,221.6L452.4,217.1Z" />
+      <path d="M267.2,216.6L276.5,221.7L289.8,220.8L302.5,221.9L302.0,224.5L311.3,222.7L309.2,227.2L284.7,228.5L284.9,226.0L264.1,223.0L267.2,216.6Z" />
+      <path d="M128.0,178.3L121.9,190.2L124.4,194.9L120.9,202.7L107.8,197.0L99.2,195.4L75.4,187.7L77.8,179.9L97.7,181.3L115.1,179.6L128.0,178.3Z" />
+      <path d="M20.6,133.2L30.8,143.9L28.4,164.0L20.7,163.0L13.7,168.1L7.3,164.1L6.6,145.8L2.7,137.1L12.1,137.9L20.6,133.2Z" />
+      <path d="M26.6,118.9L20.9,130.6L13.2,127.5L9.3,117.3L12.7,111.7L23.7,105.9L26.6,118.9Z" />
+      <path d="M800.0,0.0L800.0,354.3L795.2,356.4L774.4,351.3L757.2,339.7L740.8,335.4L729.4,321.0L716.9,300.8L707.7,303.2L696.9,298.2L690.5,304.1L680.4,303.4L684.0,310.1L682.4,313.5L687.9,325.0L694.6,338.0L703.0,341.5L705.9,346.8L717.5,353.2L718.5,359.4L716.8,364.5L719.0,369.6L723.9,373.8L726.1,378.8L728.7,382.5L727.6,371.5L732.1,363.5L736.8,361.9L741.9,366.7L742.2,375.5L738.5,384.4L741.8,390.2L744.8,389.5L745.4,393.6L758.8,391.3L772.8,391.6L783.1,392.1L794.8,381.8L800.0,377.9L800.0,498.9L797.9,500.0L791.5,500.0L787.1,499.3L785.5,500.0L585.9,500.0L584.6,498.8L583.3,492.8L574.5,487.4L565.5,474.7L560.7,462.3L548.9,451.9L541.3,449.4L530.0,435.0L528.1,424.4L528.8,415.5L519.0,398.7L511.0,392.7L501.9,389.6L496.3,380.9L497.2,377.5L492.5,369.7L487.5,366.3L480.8,355.0L470.5,342.8L461.8,332.4L453.3,332.4L456.0,324.1L456.7,318.8L458.8,312.8L458.3,310.6L453.5,316.7L449.8,328.1L445.2,336.0L441.2,338.7L435.5,333.8L427.9,327.0L415.7,305.3L414.0,306.7L421.0,322.6L431.5,337.9L444.3,361.5L450.6,369.7L456.1,378.3L471.4,395.1L468.0,397.7L468.5,407.5L488.4,421.1L491.3,424.2L496.8,439.1L493.1,441.9L495.6,457.5L501.8,475.5L508.3,479.3L517.6,484.9L526.1,500.0L0.0,500.0L0.0,198.3L7.2,197.8L25.7,191.7L37.6,193.5L37.1,201.1L51.6,195.6L52.8,198.5L44.3,205.9L44.1,212.9L50.0,216.7L47.8,229.8L36.6,237.4L39.8,245.7L48.6,245.9L52.9,253.1L59.4,255.5L79.4,260.7L86.5,259.4L100.7,261.9L123.3,268.7L131.3,282.2L146.6,285.1L170.6,291.5L188.7,299.0L197.0,295.1L205.2,288.1L201.2,276.5L206.5,269.1L218.8,262.0L230.5,259.9L253.5,263.1L259.4,269.8L265.7,269.9L271.1,272.5L288.0,274.3L292.2,279.3L314.8,279.0L331.2,283.0L348.1,287.5L356.0,289.8L369.1,285.0L376.1,280.7L391.1,279.5L403.2,281.4L407.8,288.9L411.8,283.9L425.4,287.5L438.7,288.4L447.1,284.6L452.0,279.6L450.9,278.7L455.4,271.6L458.8,260.2L461.3,256.4L461.7,256.2L467.8,243.9L476.2,233.2L476.6,232.7L475.0,221.1L479.1,214.8L472.9,208.0L479.3,202.3L469.0,203.6L454.7,200.1L443.0,208.8L417.2,210.5L403.4,202.4L385.1,201.8L381.1,208.1L369.4,209.9L352.9,201.9L334.3,202.1L324.2,187.1L311.8,178.7L320.1,166.9L309.3,159.6L328.2,145.1L354.4,144.5L361.5,133.0L394.0,135.0L414.4,125.2L434.3,120.9L462.4,120.6L492.1,131.3L516.6,137.1L536.4,134.8L551.0,136.2L571.1,128.2L573.7,121.8L569.4,111.4L559.6,105.9L550.2,104.1L543.9,99.5L522.2,86.7L502.8,81.0L488.1,72.1L500.5,69.6L514.6,57.0L505.1,51.0L530.2,44.8L529.7,41.5L514.4,43.9L500.9,45.1L489.5,50.0L473.6,50.8L458.9,56.5L459.9,65.9L468.3,69.5L485.6,68.6L482.3,74.0L463.7,76.7L440.6,85.4L431.1,82.4L434.8,75.2L416.2,70.8L419.2,67.9L435.5,62.9L430.6,59.4L404.2,55.6L403.0,49.9L387.2,51.8L380.9,60.1L367.7,71.3L368.1,75.2L359.9,78.5L354.7,77.1L349.9,95.3L341.1,101.6L334.9,112.5L340.4,121.1L342.4,126.9L357.3,131.8L354.2,135.5L333.9,136.4L326.7,141.1L312.5,149.2L307.1,142.2L307.4,139.0L297.0,138.6L288.1,137.2L267.5,141.1L279.3,149.6L270.6,152.1L261.2,152.1L252.2,144.3L249.0,147.6L252.8,156.7L261.3,163.8L254.9,167.1L264.3,174.1L272.8,178.5L273.0,187.0L257.3,183.0L262.3,190.8L251.5,192.3L257.9,205.7L246.6,205.9L232.7,199.3L226.3,187.2L223.3,177.1L216.7,170.2L208.0,161.5L206.8,157.2L203.9,156.1L203.6,152.8L194.1,147.7L192.7,140.5L194.1,130.2L196.4,125.5L193.6,123.1L190.0,121.9L185.2,116.9L177.9,113.9L161.9,108.3L152.0,102.9L136.4,98.4L122.1,87.2L125.6,86.1L117.8,79.7L117.5,74.6L106.5,72.2L101.3,78.8L96.3,73.7L96.7,68.4L97.3,68.2L101.1,66.8L87.5,64.6L73.7,70.0L74.6,77.5L72.5,81.8L78.1,89.5L94.1,97.2L102.6,109.7L121.6,121.9L134.9,121.8L139.1,125.1L134.3,128.2L149.5,133.6L162.0,138.2L176.6,146.1L178.4,149.0L175.2,154.4L165.8,147.3L151.0,144.8L143.8,154.6L156.1,160.2L154.1,168.1L147.0,169.0L137.9,182.0L130.8,183.2L130.9,178.6L134.3,170.4L138.0,167.2L131.4,158.4L126.2,150.8L119.1,148.9L114.1,142.4L103.2,139.6L95.8,133.5L83.2,132.5L69.9,125.7L54.3,115.8L42.8,107.1L37.4,92.1L29.0,90.4L15.1,85.4L7.3,87.4L0.0,92.6L0.0,0.0Z" />
+      <path d="M699.7,132.1L708.4,142.8L716.3,143.5L721.6,147.6L707.6,148.8L704.6,160.6L701.7,165.9L695.4,169.5L695.9,177.0L701.3,188.1L717.4,191.3L729.2,198.9L753.4,201.5L780.0,197.5L781.6,194.0L778.5,183.2L781.0,167.4L767.7,162.3L772.0,151.9L760.8,151.0L764.5,138.2L780.6,142.0L795.5,137.1L783.1,128.0L778.2,119.3L764.5,123.2L762.8,134.3L757.5,124.5L756.5,120.8L760.7,114.5L757.5,109.2L737.7,104.0L730.1,90.4L720.7,86.6L720.1,81.7L736.7,83.1L737.3,72.0L751.8,69.6L766.7,71.8L769.7,57.1L766.7,47.7L749.7,48.4L735.2,44.7L715.5,51.4L699.6,54.6L691.8,63.5L675.3,66.0L658.4,81.7L673.9,96.1L672.2,106.3L690.8,124.1L699.7,132.1Z" />
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 3: ROMAN PROVINCES                   -->
+    <!-- Filled from GeoJSON, each a distinct hue   -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="layer-provinces">
+        <!-- Italia -->
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M0.0,57.4L6.4,54.5L14.5,54.4L23.4,53.2L31.7,52.5L36.1,49.5L44.2,49.3L39.7,57.9L34.0,66.3L30.8,72.0L30.4,74.3L26.7,73.7L22.7,74.0L18.3,73.9L13.1,75.2L9.0,73.3L4.1,73.0L0.0,72.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M0.0,72.9L6.0,73.4L10.0,73.3L14.6,74.8L18.4,76.4L23.2,78.3L22.9,82.7L25.2,83.6L30.7,87.8L30.6,89.6L28.2,88.8L26.2,87.5L24.1,86.9L22.3,86.1L20.0,85.8L18.1,84.9L15.9,84.5L14.0,84.5L12.1,85.1L10.0,85.8L9.0,86.9L7.4,88.0L5.2,88.7L4.3,90.2L3.6,91.4L1.7,92.4L0.0,93.1L0.0,93.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M74.5,70.1L74.4,69.4L75.1,69.6L74.5,70.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M92.0,65.0L91.7,64.8L92.0,65.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M95.8,64.5L95.4,64.2L95.8,64.5Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M91.0,64.8L90.8,64.6L91.0,64.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M89.5,64.8L88.9,64.6L89.5,64.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M82.5,51.2L99.8,52.0L118.5,56.1L114.2,62.4L107.6,69.5L105.8,73.8L105.2,75.9L102.6,78.1L100.6,78.5L99.5,77.5L97.6,75.3L96.0,73.7L94.8,70.3L94.3,68.0L97.7,67.0L98.6,65.6L96.2,64.1L94.3,64.1L92.4,64.5L90.0,64.0L86.8,64.6L87.3,65.7L83.9,66.4L79.9,67.8L78.1,68.6L76.4,67.9L77.6,67.2L75.3,67.7L73.0,68.5L72.7,70.5L72.2,72.2L73.4,72.2L73.7,73.7L75.0,74.9L74.2,76.1L68.1,75.6L61.5,76.7L55.9,74.7L48.8,74.6L42.7,76.5L35.7,74.9L31.4,72.9L33.1,68.0L38.4,60.0L44.4,50.4L54.6,48.3L77.5,50.9L82.5,51.2Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M27.0,84.0L22.9,83.9L23.1,80.7L21.6,77.2L16.3,74.5L20.4,73.3L24.6,74.0L28.6,74.1L32.5,73.4L37.7,74.9L43.9,76.3L51.9,74.5L57.5,75.5L62.9,76.4L69.3,75.4L76.8,75.8L76.6,77.1L75.7,77.4L74.9,78.5L72.9,78.6L72.9,80.1L73.4,81.8L73.1,83.0L74.1,84.7L74.1,85.8L75.5,87.7L77.6,89.4L79.4,90.6L81.3,91.4L79.7,92.2L73.2,90.3L64.4,91.2L56.1,91.0L49.6,89.1L41.6,86.3L32.9,83.3L27.0,84.0L27.0,84.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M53.5,117.4L53.3,117.4L53.5,117.4Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M50.2,116.2L49.8,115.4L50.2,116.2Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M40.1,116.8L39.7,116.0L40.1,116.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M35.7,116.2L35.1,115.8L35.7,116.2Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M36.2,112.8L35.5,112.0L36.2,112.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M41.7,108.5L42.1,110.1L40.5,110.0L38.8,110.1L36.6,110.1L37.4,108.8L39.6,108.8L41.7,108.2L41.7,108.5Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M31.3,106.0L30.5,105.2L31.6,105.1L31.3,106.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M74.1,101.7L74.8,107.1L71.9,110.9L74.5,114.4L78.5,117.4L77.7,120.3L76.2,123.1L72.4,125.2L71.5,124.1L70.8,122.9L68.4,122.0L66.3,120.9L64.1,119.7L63.0,117.6L60.9,116.2L57.6,115.0L55.0,115.5L53.7,115.6L53.7,114.4L53.5,112.2L52.4,111.2L51.0,110.3L48.9,109.6L46.9,108.9L46.9,107.3L44.1,107.0L43.1,105.7L43.9,104.3L43.0,102.1L40.8,99.8L39.6,97.5L39.5,94.8L38.5,93.3L37.5,91.9L35.3,90.4L33.0,89.6L29.5,86.6L29.6,83.0L36.4,84.3L46.7,88.0L52.7,90.5L61.4,91.8L63.9,95.6L69.3,96.7L72.8,100.2L74.1,101.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M75.5,116.1L72.5,113.0L74.9,109.5L76.4,104.9L72.1,98.8L68.9,95.6L63.1,94.6L66.3,90.2L75.1,90.8L80.8,92.6L83.8,92.4L86.9,93.6L88.9,94.9L91.5,96.5L91.1,99.2L88.9,104.3L88.3,108.1L83.4,112.3L77.2,114.4L75.5,116.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M89.9,108.1L93.3,110.5L97.1,114.2L103.7,114.0L107.3,114.6L109.8,115.9L111.7,117.4L114.0,118.4L115.6,119.8L118.4,120.6L117.2,121.7L119.7,124.7L114.6,129.4L108.6,130.1L101.3,125.8L91.2,123.4L81.5,123.0L77.7,120.3L78.5,117.4L76.6,115.6L81.6,112.6L87.2,108.6L89.9,108.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M105.6,113.3L98.7,114.3L94.0,111.9L90.7,108.4L88.9,104.3L91.1,99.2L94.7,97.3L96.4,98.2L96.8,99.7L98.1,101.4L99.2,103.4L100.1,105.8L100.9,107.7L102.8,109.8L104.0,111.6L105.6,113.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M106.7,143.3L106.4,142.7L106.7,143.3L106.7,143.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M103.4,140.4L103.1,139.9L103.4,140.4Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M101.7,140.7L100.7,140.2L101.9,140.2L101.7,140.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M93.5,139.9L92.9,139.6L93.5,139.7L93.5,139.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M92.6,139.9L91.9,139.6L92.7,139.7L92.6,139.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M92.9,139.4L92.2,139.3L92.7,139.0L92.9,139.4Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M84.8,138.4L84.3,138.1L84.9,138.1L84.8,138.4Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M85.0,137.7L84.8,137.2L85.0,137.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M86.7,137.1L86.1,136.8L86.7,137.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M83.1,137.5L83.0,137.1L83.3,137.5L83.1,137.5Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M79.1,122.9L88.6,123.2L99.1,125.0L106.7,129.5L111.1,132.1L113.7,135.9L118.6,138.3L120.6,141.6L118.1,143.0L116.2,141.2L114.7,141.9L110.2,142.4L108.4,142.5L110.1,141.1L109.5,140.1L108.1,139.2L106.1,139.9L103.5,139.1L102.5,137.2L100.8,135.5L98.7,133.6L96.3,132.9L95.6,133.7L94.0,133.2L91.9,132.7L88.8,132.5L86.3,133.2L84.8,131.6L82.2,130.5L79.7,130.0L77.7,128.9L75.9,127.3L73.1,126.0L73.3,124.8L76.6,122.8L79.1,122.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M119.0,144.0L121.4,140.4L128.0,139.4L133.9,137.9L139.9,139.4L145.5,142.2L151.4,145.6L149.4,147.4L148.8,149.3L147.4,151.7L145.4,153.6L145.0,154.9L146.6,156.8L151.0,157.4L152.5,159.0L154.9,160.3L156.1,161.6L155.5,163.2L155.8,164.9L156.8,166.6L156.7,167.7L154.5,168.2L149.3,169.1L146.2,170.3L146.0,173.0L145.3,175.7L143.0,177.3L139.5,179.2L138.6,181.3L136.5,183.1L133.2,183.0L130.5,182.3L130.2,180.1L133.5,176.0L134.8,173.5L133.7,171.4L136.4,170.9L139.7,168.8L137.9,166.1L137.3,163.9L136.4,160.4L134.7,158.6L133.1,155.8L132.0,152.7L131.1,150.8L128.5,150.7L127.2,151.6L124.5,151.0L123.0,150.2L120.2,149.0L118.9,147.0L119.4,144.5L119.0,144.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M110.7,214.3L109.0,213.6L107.3,212.7L108.2,211.6L109.7,212.0L111.7,212.6L111.2,213.7L110.7,214.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M108.7,211.0L108.5,210.8L108.7,211.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M107.4,210.9L105.8,210.8L106.1,210.1L107.4,210.6L107.4,210.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M74.5,182.9L73.7,182.9L74.5,182.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M119.4,175.8L118.7,175.3L119.4,175.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M74.2,181.9L73.8,181.4L74.2,181.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M70.3,182.3L69.1,182.0L70.3,182.3L70.3,182.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M118.4,174.1L118.0,173.5L118.4,174.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M82.0,179.6L85.6,180.9L86.3,179.6L88.6,178.7L91.3,178.7L93.9,179.9L95.8,181.3L101.6,181.2L104.2,181.1L106.9,181.3L111.0,180.8L114.4,179.8L117.8,179.0L120.4,179.5L123.1,178.5L124.3,178.1L127.7,177.5L129.7,177.8L128.8,179.3L125.8,182.4L124.7,184.1L123.0,186.9L121.7,189.3L122.1,192.5L123.3,194.0L124.0,195.2L125.1,196.7L123.4,197.5L121.5,199.7L121.5,201.2L119.3,201.8L115.1,201.5L110.9,200.1L108.7,197.9L103.2,195.8L99.6,195.3L96.3,193.7L94.6,192.9L91.2,191.4L87.2,190.0L84.6,188.6L79.8,188.3L77.6,186.8L76.3,184.8L76.5,182.7L77.5,181.1L80.5,180.1L81.1,178.8L82.0,179.6L82.0,179.6Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M117.2,173.2L116.1,172.7L117.2,173.2Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M121.0,171.8L120.7,171.5L121.0,171.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M112.3,173.0L112.0,172.5L112.3,173.0Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M108.5,173.5L108.3,173.0L108.5,173.5Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M123.3,170.2L123.1,169.5L123.3,170.2Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M88.8,170.9L88.3,170.9L88.8,170.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M126.1,122.8L129.6,122.2L132.9,122.4L136.5,121.9L139.6,123.0L139.6,124.8L137.7,125.1L136.0,126.2L135.5,128.7L138.6,130.2L141.3,131.0L144.0,131.8L147.3,133.2L150.5,134.0L155.1,135.2L158.4,136.8L161.9,138.8L166.0,139.5L170.0,141.6L171.7,142.7L174.3,144.6L176.2,146.1L178.2,147.3L179.0,149.0L179.4,150.4L178.1,153.2L177.1,154.6L173.8,154.3L171.3,152.5L170.8,151.6L170.7,150.6L169.5,149.0L167.4,147.1L162.8,147.2L160.2,146.4L157.4,145.2L158.6,144.1L154.9,143.9L153.0,144.8L148.7,144.3L142.1,140.9L137.6,137.4L131.1,138.7L124.1,139.7L120.2,139.9L117.4,138.1L112.1,135.6L111.5,131.0L118.0,127.3L117.6,123.1L119.6,121.3L121.8,121.9L125.5,122.5L126.1,122.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M127.7,119.3L127.7,119.3L127.7,119.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M133.0,117.7L133.0,117.7L133.0,117.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M7.1,167.7L5.5,166.3L7.2,165.6L7.6,167.4L7.1,167.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M4.9,165.3L4.1,164.5L4.9,165.3L4.9,165.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M30.1,138.1L30.2,137.4L30.1,138.1Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M25.5,133.3L24.9,133.0L25.5,133.3L25.5,133.3Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M24.4,132.9L24.5,132.4L24.4,132.9Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M22.5,132.4L22.6,132.2L22.5,132.4Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M24.9,134.6L26.6,134.5L27.4,136.0L26.5,137.3L28.7,138.4L30.4,141.7L31.0,144.0L28.5,147.1L29.2,149.3L29.0,152.8L28.5,155.2L28.0,158.4L27.7,160.1L26.7,163.2L26.0,165.3L23.2,164.4L19.9,164.1L17.3,165.3L16.8,167.5L14.0,168.7L12.4,168.3L10.1,167.6L7.8,165.4L6.7,162.8L6.7,160.1L7.7,157.3L8.1,155.6L8.8,155.3L8.5,153.0L6.7,152.8L7.8,150.0L8.5,147.5L6.4,146.0L5.7,143.5L4.0,142.9L2.6,142.7L2.3,140.2L3.9,136.9L5.4,138.6L8.7,139.5L11.8,137.9L14.3,137.1L19.1,134.3L19.9,132.3L22.7,133.3L24.9,134.6L24.9,134.6Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M5.8,135.8L4.2,135.5L6.4,134.7L5.8,135.8Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M10.0,123.7L10.0,123.5L10.0,123.7Z"/>
+        <path class="province" fill="#c0392b" fill-opacity="0.35" stroke="#c0392b" stroke-width="0.6" stroke-dasharray="3,2" d="M24.9,110.4L26.4,114.2L26.2,120.4L23.4,125.4L22.1,127.0L22.6,128.5L21.5,130.5L19.4,130.5L13.5,128.0L14.9,126.5L13.0,125.5L12.4,124.5L13.1,122.8L10.6,122.0L12.1,120.2L9.4,118.6L11.3,117.2L9.7,115.5L12.0,113.3L17.4,111.3L21.3,110.6L23.1,109.8L22.8,107.2L24.0,106.0L25.0,107.2L25.0,109.5L24.9,110.4Z"/>
+        <text class="prov-label" x="85.1" y="113.6">Italia</text>
+
+        <!-- Dalmatia -->
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M143.4,115.5L143.4,115.5L143.4,115.5Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M142.2,115.7L142.2,115.7L142.2,115.7Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M141.3,115.2L141.3,115.2L141.3,115.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M168.8,110.0L169.1,110.0L168.8,110.0Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M162.0,109.4L165.9,110.3L163.7,110.4L160.2,109.8L161.2,109.3L162.0,109.4Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M153.2,110.2L151.0,109.9L153.2,110.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M145.5,109.8L145.4,109.5L145.5,109.8Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M155.7,106.6L154.8,107.0L152.4,107.4L149.2,107.4L148.3,106.3L149.9,106.2L155.7,106.6L155.7,106.6Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M136.2,106.6L136.2,106.6L136.2,106.6Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M130.5,107.3L130.5,107.3L130.5,107.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M149.0,105.2L149.4,104.7L149.0,105.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M140.2,105.6L137.1,105.4L139.9,104.8L140.2,105.6Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M132.8,105.8L132.6,105.3L132.8,105.8Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M148.2,103.0L150.1,103.1L153.0,103.6L155.7,104.4L150.6,104.0L145.2,103.2L147.6,102.8L148.2,103.0Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M152.2,101.9L147.4,102.2L144.4,100.7L148.1,100.6L152.2,101.9L152.2,101.9Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M141.9,100.3L142.0,100.8L141.2,100.2L141.9,100.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M131.1,96.3L131.1,96.3L131.1,96.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M127.4,94.9L125.2,94.3L125.0,93.9L127.4,94.9Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M125.4,93.3L125.6,93.1L125.4,93.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M122.5,92.5L122.0,91.6L122.5,92.5Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M125.7,91.7L123.8,90.5L121.6,88.9L124.9,91.3L125.7,91.7Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M121.5,91.2L120.5,90.9L117.3,89.0L118.8,89.2L121.5,91.2L121.5,91.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M120.7,86.3L120.4,86.0L120.7,86.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M117.4,87.3L115.4,86.5L117.4,87.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M113.9,85.9L113.0,85.4L113.9,85.9Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M116.7,85.2L115.7,84.6L116.1,85.1L116.7,85.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M114.6,85.0L113.8,84.6L114.6,85.0Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M112.1,84.3L112.1,84.3L112.1,84.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M112.8,83.2L112.8,83.2L112.8,83.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M122.4,86.0L120.9,84.8L116.0,81.5L116.3,80.4L118.7,82.2L120.9,84.1L123.1,85.8L122.4,86.0Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M111.1,82.6L108.7,81.2L109.4,81.0L111.1,82.6Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M117.4,79.7L116.6,79.6L117.4,79.7Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M107.5,81.0L107.1,80.6L107.4,80.6L107.5,81.0Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M116.0,79.3L114.4,78.4L116.2,79.0L116.0,79.3Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M116.7,77.1L116.6,76.7L116.7,77.1Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M115.1,74.7L115.6,76.3L111.9,75.5L110.5,74.3L112.1,72.6L114.5,73.9L115.1,74.7Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M110.6,76.2L111.5,80.3L110.4,80.9L107.9,77.9L109.1,76.8L107.7,74.4L107.8,73.1L109.8,74.8L110.6,76.2Z"/>
+        <path class="province" fill="#b87a4a" fill-opacity="0.35" stroke="#b87a4a" stroke-width="0.6" stroke-dasharray="3,2" d="M110.4,68.8L130.6,74.4L151.1,78.6L163.5,81.0L172.8,81.3L189.6,82.9L202.7,81.3L208.6,82.3L208.7,94.6L208.6,108.1L204.8,119.0L197.8,126.3L197.9,125.0L196.0,123.5L193.0,122.6L190.2,122.0L189.3,119.4L186.4,118.0L183.6,116.3L181.2,115.4L183.2,114.1L183.1,113.5L180.6,114.2L178.3,114.3L175.0,112.9L173.8,111.6L169.1,109.3L166.4,109.5L163.0,108.4L158.5,106.8L154.6,105.8L157.9,105.6L161.1,106.8L163.1,107.0L159.3,104.3L156.0,103.5L154.0,101.8L149.9,100.3L144.8,98.6L142.9,97.8L143.0,99.1L140.3,98.3L137.5,99.0L135.4,97.0L133.0,94.7L130.8,94.5L129.8,93.5L129.4,92.3L128.0,92.2L124.4,89.7L122.2,88.1L123.0,87.1L124.3,86.7L126.9,87.2L126.2,86.2L123.8,84.9L119.2,81.6L117.9,78.8L118.4,75.9L115.8,73.5L112.4,72.0L108.4,70.3L107.1,72.4L104.8,71.7L109.9,68.1L110.4,68.8Z"/>
+        <text class="prov-label" x="144.7" y="98.5">Dalmatia</text>
+
+        <!-- Thracia -->
+        <path class="province" fill="#7ab854" fill-opacity="0.35" stroke="#7ab854" stroke-width="0.6" stroke-dasharray="3,2" d="M300.4,145.4L297.6,144.8L300.3,144.0L300.4,145.4L300.4,145.4Z"/>
+        <path class="province" fill="#7ab854" fill-opacity="0.35" stroke="#7ab854" stroke-width="0.6" stroke-dasharray="3,2" d="M269.1,102.4L283.8,101.5L294.8,105.0L305.3,103.8L315.6,102.2L328.0,102.5L332.3,106.2L334.2,113.0L331.1,113.5L329.1,114.6L331.0,114.7L333.7,114.4L335.4,115.8L336.1,117.3L338.4,118.8L341.0,121.6L341.2,124.2L343.1,127.3L347.4,129.7L352.7,131.5L358.3,132.8L358.2,133.9L356.0,135.0L353.2,136.7L350.2,136.3L348.4,136.6L345.3,135.4L340.4,136.1L337.9,136.7L332.2,136.8L329.5,139.3L325.8,142.0L323.5,142.9L320.1,144.1L315.9,146.9L312.1,149.5L309.3,150.9L310.2,149.3L310.7,147.8L314.6,144.4L318.6,143.2L319.6,141.6L315.8,141.9L310.4,142.2L307.3,141.9L306.8,139.9L305.5,138.8L303.2,138.8L300.3,138.5L294.6,137.3L291.2,136.6L289.2,137.4L286.1,138.3L282.8,138.1L281.5,137.2L277.8,134.6L270.7,128.9L257.0,125.6L245.0,121.4L247.2,113.7L257.3,101.6L269.1,102.4L269.1,102.4Z"/>
+        <text class="prov-label" x="323.4" y="121.2">Thracia</text>
+
+        <!-- Macedonia -->
+        <path class="province" fill="#6ab0d4" fill-opacity="0.35" stroke="#6ab0d4" stroke-width="0.6" stroke-dasharray="3,2" d="M285.8,141.4L283.5,142.4L281.9,141.7L281.7,140.4L283.7,139.4L285.2,140.1L285.8,141.4Z"/>
+        <path class="province" fill="#6ab0d4" fill-opacity="0.35" stroke="#6ab0d4" stroke-width="0.6" stroke-dasharray="3,2" d="M192.8,144.3L192.3,143.7L192.8,144.3Z"/>
+        <path class="province" fill="#6ab0d4" fill-opacity="0.35" stroke="#6ab0d4" stroke-width="0.6" stroke-dasharray="3,2" d="M226.6,123.6L240.0,120.2L246.8,123.0L261.1,126.0L273.2,130.0L279.0,135.8L278.9,137.6L276.2,140.0L271.4,140.8L266.4,141.0L269.6,143.6L270.5,145.6L276.0,146.3L279.1,148.1L278.0,149.7L274.9,147.2L267.8,146.6L269.7,148.6L272.9,151.2L271.3,152.5L268.9,150.3L266.8,148.5L261.8,148.0L263.4,150.6L266.3,151.5L267.4,153.1L263.1,152.5L261.4,151.8L261.0,149.6L258.3,147.8L255.0,146.0L252.9,144.5L255.0,143.2L252.9,141.7L251.7,143.4L250.2,144.2L249.8,146.2L248.3,148.9L248.0,150.7L250.5,153.1L243.7,152.1L233.0,153.8L222.0,148.8L212.2,146.4L200.2,147.1L195.4,144.8L193.4,142.3L194.4,139.4L196.7,137.9L195.6,136.5L196.1,133.7L196.6,132.2L195.1,131.2L195.6,129.7L196.3,128.5L196.6,127.4L198.1,126.5L203.2,121.9L216.1,122.0L226.6,123.6Z"/>
+        <text class="prov-label" x="255.3" y="133.3">Macedonia</text>
+
+        <!-- Achaia -->
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M260.9,214.3L259.8,213.8L260.9,214.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M258.7,212.9L258.7,212.9L258.7,212.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M259.8,212.4L259.4,212.1L259.8,212.4Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M304.0,208.1L303.6,207.7L304.0,208.1L304.0,208.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M255.0,210.7L254.6,210.4L255.0,210.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M305.4,208.0L305.0,207.5L305.4,208.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M306.7,207.7L306.4,207.3L306.7,207.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M303.8,207.2L302.9,206.8L303.4,206.7L303.8,207.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M304.5,206.5L302.5,206.0L304.0,206.0L304.5,206.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M297.1,207.1L296.1,206.2L297.4,205.6L297.1,207.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M295.4,205.7L295.3,205.0L295.4,205.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M296.7,204.9L296.7,204.7L296.7,204.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M256.0,209.0L253.5,208.5L253.4,206.8L255.5,206.9L256.8,208.5L256.0,209.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M255.0,204.5L254.0,204.7L255.0,204.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M288.3,202.5L286.8,201.9L288.3,202.5L288.3,202.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M292.2,201.3L290.8,202.3L291.6,201.1L292.2,201.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M295.5,202.1L293.5,200.7L295.7,200.8L295.5,202.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M265.5,201.6L265.1,201.1L265.5,201.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M278.9,200.3L280.7,200.9L278.7,201.9L277.2,200.9L278.4,200.7L278.9,200.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M282.6,200.1L282.3,199.9L282.6,200.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M297.5,199.2L297.0,198.8L297.5,199.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M237.3,202.6L236.9,202.4L237.3,202.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M275.9,200.2L275.7,199.6L275.9,200.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M298.5,198.6L298.4,198.4L298.5,198.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M301.0,198.5L300.0,198.4L301.0,198.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M281.0,200.0L281.3,199.4L281.0,200.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M299.2,198.3L299.1,197.9L299.2,198.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M299.9,197.5L299.7,197.4L299.9,197.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M263.3,199.3L263.3,199.3L263.3,199.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M235.0,201.5L234.5,200.9L235.0,201.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M233.0,200.5L232.7,200.3L233.0,200.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M290.4,197.4L290.0,196.3L290.4,197.4L290.4,197.4Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M284.2,198.0L283.0,196.3L284.7,197.5L284.2,198.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M303.8,194.8L302.8,194.9L303.8,194.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M293.6,196.9L291.3,196.5L291.9,194.8L293.7,195.9L293.6,196.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M297.0,197.8L295.8,196.4L297.4,194.5L299.0,194.0L299.5,195.7L298.0,197.6L297.0,197.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M280.8,194.9L279.2,195.1L280.9,193.9L280.8,194.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M230.6,196.2L230.6,196.0L230.6,196.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M257.8,193.9L257.3,193.4L257.8,193.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M260.2,193.2L260.2,193.0L260.2,193.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M261.0,192.3L260.9,192.0L261.0,192.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M263.3,192.8L261.8,192.3L264.5,191.7L263.7,192.6L263.3,192.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M296.6,189.9L295.0,189.2L296.6,189.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M288.3,191.1L286.5,190.5L288.3,191.1L288.3,191.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M279.0,191.6L278.5,189.6L279.1,191.0L279.0,191.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M271.9,189.0L271.9,188.9L271.9,189.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M263.6,189.2L263.7,189.1L263.6,189.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M293.3,188.7L289.3,187.2L290.9,186.8L293.4,187.4L293.3,188.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M278.8,187.5L275.9,187.3L278.8,187.5L278.8,187.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M261.6,188.3L261.0,187.3L261.6,188.3L261.6,188.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M274.1,186.6L273.7,186.2L274.1,186.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M261.2,186.8L261.3,186.5L261.2,186.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M264.1,186.6L262.1,185.7L264.3,185.5L264.1,186.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M288.9,185.4L285.5,184.1L284.2,183.0L284.9,181.6L286.5,182.5L288.8,184.2L288.9,185.4Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M294.1,181.0L293.5,180.3L294.1,181.0L294.1,181.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M221.0,185.6L218.6,186.2L216.5,185.8L215.7,183.1L216.9,184.0L219.9,184.9L221.0,185.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M215.3,175.8L216.4,177.7L218.4,180.3L215.2,180.1L212.8,179.3L212.0,179.0L210.5,177.9L212.5,176.8L214.5,174.7L215.3,175.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M217.2,176.0L215.5,175.4L216.5,174.3L216.7,175.9L217.2,176.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M220.3,173.9L220.3,173.9L220.3,173.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M278.4,168.9L278.0,168.5L278.4,168.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M218.2,173.1L218.2,173.1L218.2,173.1Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M219.9,173.0L219.8,172.4L219.9,173.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M218.2,172.2L218.2,171.9L218.2,172.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M282.4,168.9L282.1,170.1L281.1,169.1L280.1,168.8L279.9,167.6L282.0,167.8L282.4,168.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M262.4,167.6L265.1,170.3L268.3,171.1L274.2,171.8L275.2,175.1L276.3,177.3L278.0,178.7L281.4,179.6L280.6,182.5L277.5,181.5L275.3,179.7L273.0,176.8L271.6,175.7L266.8,175.4L264.1,173.2L261.3,171.1L256.0,168.7L253.5,169.2L254.7,168.2L256.8,167.2L261.2,166.3L262.4,167.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M216.5,172.4L214.9,172.8L213.9,172.5L215.6,170.0L216.7,171.7L216.5,172.4Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M274.2,165.3L273.7,165.3L274.2,165.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M271.9,163.6L271.6,163.5L271.9,163.6Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M263.4,164.7L262.8,164.0L263.4,164.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M268.4,164.8L265.5,164.5L265.6,163.8L268.4,164.8L268.4,164.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M218.6,167.2L218.2,166.9L218.6,167.2Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M269.8,164.3L270.6,162.9L270.7,163.4L269.8,164.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M277.6,161.3L277.6,161.3L277.6,161.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M273.6,161.4L273.2,161.3L273.6,161.4Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M209.4,164.7L209.2,164.6L209.4,164.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M289.1,159.3L288.5,158.7L289.4,158.2L289.1,159.3Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M208.4,163.9L207.6,163.4L208.4,163.9Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M296.6,152.0L295.1,153.6L293.8,154.3L292.6,153.4L292.0,154.7L289.5,154.3L290.3,153.2L290.0,151.7L292.1,151.9L293.8,152.2L295.4,151.5L296.6,152.0L296.6,152.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M196.2,156.0L196.0,155.3L196.2,156.0Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M305.4,149.7L302.4,150.2L301.6,149.0L304.4,147.9L305.6,148.7L305.4,149.7Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M202.7,154.5L202.6,156.0L203.4,158.2L205.4,159.7L205.4,161.2L202.2,158.7L199.2,156.3L200.2,154.8L202.7,154.5Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M194.6,153.8L194.0,153.7L194.6,153.8Z"/>
+        <path class="province" fill="#4caf7d" fill-opacity="0.35" stroke="#4caf7d" stroke-width="0.6" stroke-dasharray="3,2" d="M195.3,146.3L200.2,147.1L212.2,146.4L222.0,148.8L233.0,153.8L243.7,152.1L251.1,153.6L253.5,155.8L256.1,159.1L258.1,160.6L260.3,162.0L260.9,164.9L256.4,165.3L257.7,165.1L259.5,164.2L257.9,162.2L254.0,161.1L251.9,162.5L253.1,164.2L255.2,165.5L255.2,166.5L255.7,166.9L254.6,168.0L251.5,168.9L248.7,168.3L248.9,169.5L253.6,170.2L256.3,171.6L258.1,171.9L260.6,172.4L262.9,174.7L265.8,176.3L268.1,176.5L272.1,178.6L272.0,180.1L273.2,184.3L271.2,187.0L269.9,184.9L268.7,184.8L265.8,183.1L264.5,181.1L264.3,182.4L262.1,183.1L263.2,182.6L262.3,182.5L258.5,183.1L255.9,183.0L257.4,184.3L258.2,186.3L260.3,189.0L263.9,190.2L261.6,191.2L259.6,191.9L256.8,192.0L256.4,190.4L253.6,188.8L251.5,188.2L251.2,190.0L252.5,192.8L254.0,195.7L255.4,197.7L256.6,199.7L256.2,202.6L258.3,204.7L256.8,205.1L254.5,204.0L252.7,202.0L251.7,200.4L248.8,199.7L247.2,202.1L246.3,203.6L246.2,205.5L244.5,203.9L244.2,200.9L241.9,198.8L239.6,196.8L237.2,198.4L237.2,200.4L235.2,200.0L232.9,199.3L230.6,195.6L232.7,192.3L230.2,189.1L228.1,187.5L226.0,186.3L223.4,182.9L227.6,180.4L230.6,179.5L234.2,177.4L238.1,176.9L244.4,179.5L251.4,181.8L255.0,182.7L253.6,181.3L257.5,180.8L257.5,179.4L255.6,178.8L252.8,178.5L251.5,177.5L249.8,176.1L245.2,175.5L240.0,176.0L237.2,176.2L233.5,176.7L230.2,177.3L229.6,176.7L227.2,175.1L224.5,177.4L223.1,174.9L221.5,173.0L219.8,171.6L218.3,170.3L217.7,169.5L217.7,168.8L219.4,168.1L222.1,168.8L224.1,169.3L223.8,167.2L220.9,166.8L218.6,166.0L217.6,166.4L216.3,167.0L212.5,164.2L209.1,161.8L208.3,159.6L206.7,157.5L204.2,155.3L203.3,153.1L201.1,150.6L197.6,149.5L193.5,146.2L194.3,145.2L195.3,146.3Z"/>
+        <text class="prov-label" x="246.8" y="184.8">Achaia</text>
+
+        <!-- Bithynia -->
+        <path class="province" fill="#4a90d4" fill-opacity="0.35" stroke="#4a90d4" stroke-width="0.6" stroke-dasharray="3,2" d="M355.0,137.0L356.0,135.0L357.2,136.0L355.0,137.0L355.0,137.0Z"/>
+        <path class="province" fill="#4a90d4" fill-opacity="0.35" stroke="#4a90d4" stroke-width="0.6" stroke-dasharray="3,2" d="M463.2,121.0L462.1,122.9L466.8,126.1L473.7,125.8L478.7,126.5L479.7,128.8L482.1,131.1L485.6,132.4L488.3,131.0L492.3,131.9L494.3,133.7L500.0,134.8L502.1,135.9L494.3,138.2L476.1,132.7L461.7,129.8L446.0,131.0L432.1,136.8L415.0,145.6L400.5,150.8L365.2,148.9L352.8,145.5L355.5,145.5L358.5,145.3L357.8,144.4L354.6,143.6L354.2,142.8L356.5,141.5L360.0,141.4L362.9,141.1L365.0,140.5L368.7,140.7L372.3,140.5L370.2,140.1L367.3,139.6L364.8,139.6L361.7,139.0L359.4,137.8L357.3,136.5L359.0,134.5L361.2,133.2L369.1,133.7L374.5,134.3L379.0,133.3L383.9,133.9L386.9,134.9L392.1,135.3L394.9,134.6L397.7,133.8L398.2,132.0L400.0,130.8L402.6,130.0L405.4,128.6L409.8,127.1L412.3,125.6L415.1,124.8L418.9,123.6L422.9,123.0L426.0,122.0L429.3,121.0L432.0,120.6L438.7,121.6L443.4,121.6L449.4,121.6L454.3,122.2L458.4,120.2L461.3,120.6L463.2,121.0L463.2,121.0Z"/>
+        <text class="prov-label" x="408.5" y="128.8">Bithynia</text>
+
+        <!-- Cilicia -->
+        <path class="province" fill="#d45f5f" fill-opacity="0.35" stroke="#d45f5f" stroke-width="0.6" stroke-dasharray="3,2" d="M469.9,203.3L469.3,202.6L470.7,201.8L471.3,201.6L470.3,202.3L469.9,203.3Z"/>
+        <path class="province" fill="#d45f5f" fill-opacity="0.35" stroke="#d45f5f" stroke-width="0.6" stroke-dasharray="3,2" d="M483.1,199.7L479.5,201.8L478.8,199.7L477.8,198.7L476.1,198.0L474.9,199.2L473.2,200.3L470.2,200.7L469.9,201.4L469.0,202.6L465.1,203.7L460.6,202.2L457.8,201.0L457.6,200.4L454.3,200.1L450.7,201.8L449.3,202.8L444.4,206.3L442.9,208.5L441.8,207.4L439.5,209.1L437.4,209.8L435.5,210.0L430.6,210.6L427.4,210.7L424.0,210.9L422.1,211.6L419.2,210.8L416.4,210.1L413.4,208.4L411.6,206.1L408.4,204.1L405.3,203.4L415.0,197.0L430.6,191.8L437.5,190.0L453.1,190.5L470.9,189.4L488.7,191.2L484.0,198.2L483.1,199.7Z"/>
+        <text class="prov-label" x="456.2" y="201.5">Cilicia</text>
+
+        <!-- Cyprus -->
+        <path class="province" fill="#c07ab8" fill-opacity="0.35" stroke="#c07ab8" stroke-width="0.6" stroke-dasharray="3,2" d="M422.3,224.9L426.0,221.7L435.1,221.9L441.1,220.5L446.7,218.6L450.3,217.4L451.1,218.0L448.2,219.7L444.3,221.5L443.2,226.7L441.7,227.7L438.6,227.9L436.2,230.2L433.9,230.8L430.3,231.7L425.9,232.4L424.2,233.4L420.5,232.4L417.0,231.8L414.7,230.3L413.1,227.0L414.1,226.2L417.0,225.2L422.3,224.9Z"/>
+        <text class="prov-label" x="425.5" y="225.8">Cyprus</text>
+
+        <!-- Judea -->
+        <path class="province" fill="#5fa87a" fill-opacity="0.35" stroke="#5fa87a" stroke-width="0.6" stroke-dasharray="3,2" d="M446.0,283.1L448.3,281.3L450.1,279.8L452.2,277.6L454.1,275.4L455.2,272.6L456.1,270.7L457.2,267.6L458.0,263.8L459.5,262.2L466.9,257.5L471.6,258.3L470.2,262.8L470.8,273.4L469.6,280.9L468.1,285.0L454.7,285.2L446.0,283.1L446.0,283.1Z"/>
+        <text class="prov-label" x="464.7" y="280.3">Judea</text>
+
+        <!-- Syria -->
+        <path class="province" fill="#d49a3c" fill-opacity="0.35" stroke="#d49a3c" stroke-width="0.6" stroke-dasharray="3,2" d="M458.6,262.4L460.1,259.9L461.6,256.1L463.8,251.7L465.9,249.3L466.9,246.7L468.9,243.7L470.1,241.2L470.7,238.2L472.5,236.2L475.1,234.6L476.2,232.6L474.3,229.3L474.2,226.4L475.5,223.9L475.0,222.1L474.5,220.6L472.0,219.5L471.9,218.0L472.6,216.9L473.3,215.6L473.1,213.8L475.3,212.5L474.7,210.4L472.9,207.5L474.2,206.0L477.3,203.9L479.2,203.1L483.1,199.7L487.7,192.7L495.3,188.8L512.6,185.3L529.4,182.7L528.2,184.0L524.9,187.2L520.5,189.4L515.7,191.0L511.6,191.5L508.1,194.4L509.8,196.3L510.9,200.2L513.0,202.3L514.4,205.0L513.0,209.2L511.7,211.7L514.6,213.3L518.6,214.5L523.0,214.4L527.0,213.7L522.5,221.7L486.6,257.7L476.3,259.3L471.1,257.2L464.7,259.1L458.6,262.4L458.6,262.4Z"/>
+        <text class="prov-label" x="519.1" y="230.3">Syria</text>
+
+        <!-- Galatia -->
+        <path class="province" fill="#9b6bb5" fill-opacity="0.35" stroke="#9b6bb5" stroke-width="0.6" stroke-dasharray="3,2" d="M410.7,196.9L410.1,194.1L400.1,184.8L385.9,179.8L381.3,178.2L394.3,175.1L401.5,176.6L400.6,159.5L404.5,149.8L419.8,143.5L435.3,134.9L449.7,130.3L465.7,130.0L482.8,134.8L496.7,138.0L502.6,135.9L504.3,135.3L505.7,134.7L507.8,135.9L512.0,136.9L517.9,137.7L520.7,137.2L523.7,136.6L526.3,135.9L529.4,135.6L533.3,135.4L536.6,135.2L540.1,136.3L542.6,137.0L540.0,141.4L537.4,151.8L534.0,156.4L529.0,157.7L524.2,158.6L520.4,159.7L516.6,161.0L521.5,163.8L523.2,165.8L523.3,169.1L519.1,171.2L517.0,174.0L521.0,175.9L523.8,177.0L525.9,178.5L528.6,179.9L530.6,181.7L525.8,183.5L507.3,186.1L492.3,190.0L483.6,190.4L462.6,189.5L445.1,190.6L432.1,189.0L424.0,194.5L410.8,197.3L410.7,196.9Z"/>
+        <text class="prov-label" x="468.1" y="159.1">Galatia</text>
+
+        <!-- Lycia -->
+        <path class="province" fill="#d47a3c" fill-opacity="0.35" stroke="#d47a3c" stroke-width="0.6" stroke-dasharray="3,2" d="M368.1,211.0L367.5,210.7L368.1,211.0Z"/>
+        <path class="province" fill="#d47a3c" fill-opacity="0.35" stroke="#d47a3c" stroke-width="0.6" stroke-dasharray="3,2" d="M367.5,210.6L366.8,210.2L367.6,210.3L367.5,210.6Z"/>
+        <path class="province" fill="#d47a3c" fill-opacity="0.35" stroke="#d47a3c" stroke-width="0.6" stroke-dasharray="3,2" d="M411.1,198.5L404.9,203.3L402.1,202.1L399.4,200.9L396.1,200.0L393.8,199.6L390.3,199.1L387.1,199.2L383.9,201.0L383.9,203.6L383.1,204.9L382.5,206.2L382.4,207.9L381.3,209.0L379.9,208.1L377.0,208.5L374.7,208.8L372.7,209.6L371.3,210.5L368.0,209.3L363.1,208.7L360.8,207.5L359.3,206.3L359.1,204.3L358.6,202.9L357.8,202.1L355.5,201.4L355.6,202.9L353.8,202.6L352.7,200.7L360.0,193.3L371.6,186.8L381.0,180.7L391.7,180.5L406.9,189.3L410.5,196.1L410.8,197.2L411.1,198.5Z"/>
+        <text class="prov-label" x="383.0" y="197.0">Lycia</text>
+
+        <!-- Asia -->
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M320.3,220.7L320.1,220.3L320.3,220.7Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M322.3,221.6L321.1,221.3L322.5,220.5L323.2,220.7L322.3,221.6Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M321.7,220.2L321.3,219.8L321.7,220.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M313.7,214.5L313.6,214.1L313.7,214.5Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M309.7,213.7L309.9,213.6L309.7,213.7Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M326.3,220.8L325.0,219.5L324.8,218.2L325.7,216.7L327.2,214.6L327.1,216.1L327.2,219.4L326.6,219.9L326.3,220.8Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M327.4,213.9L327.3,213.2L327.4,213.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M331.7,214.9L331.0,214.0L331.7,214.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M313.9,211.0L313.2,210.4L313.9,211.0Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M318.1,207.9L318.0,207.4L318.1,207.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M333.5,208.9L334.0,208.8L333.5,208.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M335.4,208.6L335.4,208.1L335.4,208.6Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M322.2,206.1L322.0,205.5L322.2,206.1Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M330.5,206.0L328.4,206.1L329.9,205.2L330.5,206.0Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M312.7,204.4L311.6,203.0L313.4,202.1L313.0,203.6L312.7,204.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M326.8,203.7L325.6,203.0L327.1,203.4L326.8,203.7Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M337.4,214.1L335.8,212.7L335.5,210.3L337.1,208.6L339.2,207.2L341.6,206.5L344.3,206.4L343.5,208.9L340.1,211.9L337.4,214.1Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M325.7,202.4L325.4,201.8L325.7,202.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M304.0,200.4L302.4,199.8L304.2,199.1L306.1,198.2L307.9,198.5L305.3,199.4L304.0,200.4L304.0,200.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M337.9,203.9L337.9,203.0L337.9,203.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M311.5,197.4L311.6,196.9L311.5,197.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M313.2,197.4L313.1,196.9L313.2,197.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M314.9,197.0L314.8,196.6L314.9,197.0Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M322.9,201.8L322.4,200.4L324.7,198.9L327.7,198.3L327.3,199.3L323.4,200.7L322.9,201.8Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M323.7,196.4L324.4,197.5L322.1,197.5L322.3,195.9L323.7,196.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M325.9,196.5L325.2,195.6L325.9,196.5L325.9,196.5Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M321.2,195.1L320.3,194.0L321.2,195.1Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M319.5,192.6L319.2,192.1L319.5,192.6Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M316.1,192.2L315.7,191.4L316.1,192.2L316.1,192.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M319.2,191.2L319.0,190.7L319.2,191.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M322.9,190.2L322.7,189.6L322.9,190.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M306.9,188.8L307.2,187.5L310.3,187.1L312.3,186.9L310.0,188.2L306.9,188.8L306.9,188.8Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M315.4,188.4L313.9,187.8L315.1,186.9L315.4,187.9L315.4,188.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M324.9,185.0L322.7,186.4L320.6,187.1L318.8,186.2L316.4,185.6L318.6,184.4L321.4,184.7L324.9,185.0L324.9,185.0Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M299.5,173.5L299.9,172.7L299.5,173.5Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M310.8,173.7L310.8,173.4L310.8,173.7Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M307.6,172.8L309.3,174.4L309.0,177.4L307.1,178.8L304.8,178.5L306.0,176.5L304.9,174.4L304.3,172.8L307.6,172.8L307.6,172.8Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M318.7,174.4L318.3,173.8L318.7,174.4Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M315.5,162.2L315.3,161.6L315.5,162.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M315.0,163.6L316.5,165.6L315.5,166.2L314.2,165.0L314.8,166.1L314.6,167.4L311.9,166.9L309.2,166.5L309.5,165.3L311.5,164.3L310.0,163.4L308.6,164.3L306.2,165.1L304.1,162.6L308.2,162.2L311.2,161.0L313.1,161.5L314.5,163.3L315.0,163.6Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M307.3,154.5L305.8,154.1L307.3,154.5L307.3,154.5Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M331.6,144.9L331.1,144.2L332.1,144.6L331.6,144.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M333.8,145.2L333.0,144.4L333.8,145.2L333.8,145.2Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M334.1,142.9L332.0,141.9L335.3,141.7L335.2,142.7L334.1,142.9Z"/>
+        <path class="province" fill="#c9a84c" fill-opacity="0.35" stroke="#c9a84c" stroke-width="0.6" stroke-dasharray="3,2" d="M400.4,154.9L401.8,174.6L396.4,176.2L383.3,175.5L378.9,181.5L370.4,187.5L356.3,196.0L352.8,201.6L350.8,201.1L350.8,199.9L348.7,200.4L347.5,199.1L345.7,199.8L345.4,201.0L344.4,202.2L342.5,203.5L340.0,203.2L340.5,201.9L342.1,200.7L336.3,201.1L332.3,202.1L331.5,200.6L337.1,200.0L341.4,200.1L340.9,199.1L342.9,198.1L345.5,196.7L343.2,196.4L339.6,196.9L336.8,197.2L333.6,197.3L330.8,196.8L327.6,197.5L327.3,195.6L329.1,194.9L331.5,195.8L332.2,195.0L333.4,194.1L332.8,193.2L330.9,192.2L329.9,191.1L328.5,191.9L326.6,191.0L326.1,189.1L326.1,188.0L324.7,186.7L327.1,185.7L327.3,183.9L326.4,182.4L322.5,181.1L320.7,180.0L318.1,178.9L316.5,179.9L314.8,179.2L312.6,178.4L310.7,178.3L311.2,176.9L313.6,176.9L314.1,175.2L312.2,173.9L316.0,173.1L316.8,175.5L318.0,176.3L319.3,175.9L321.9,176.3L324.5,175.4L320.4,173.8L318.7,172.2L321.1,170.6L323.1,169.5L324.1,168.7L322.7,168.0L320.1,167.0L321.0,165.4L318.4,163.6L316.3,162.7L317.2,161.0L318.9,161.4L321.3,159.4L322.2,158.1L317.3,158.4L313.8,159.1L309.7,159.6L307.4,158.4L308.6,156.3L308.3,153.6L309.6,151.4L312.3,150.4L313.4,148.8L316.9,146.9L319.7,145.4L323.3,145.8L325.0,144.9L327.8,144.8L330.3,146.5L334.4,146.9L337.4,146.2L336.3,145.1L335.1,143.8L337.2,143.8L340.5,144.3L339.8,145.7L343.5,145.4L347.7,145.4L350.8,145.8L352.9,145.8L374.0,150.1L401.4,150.6L400.4,154.9Z"/>
+        <text class="prov-label" x="357.4" y="169.7">Asia</text>
+
+    </g>
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYERS 4-10: TO BE ADDED IN NEXT STEPS     -->
+    <!-- ═══════════════════════════════════════════ -->
+
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 5: JOURNEY ROUTES (static)           -->
+    <!-- J1=yellow J2=orange J3=purple J4=red dash  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="layer-routes">
+        <!-- Journey 1 (Acts 13-14): Antioch→Seleucia→Cyprus coast→Attalia→Perga→Galatia→return -->
+        <path id="path-j1" class="journey-path" d="M479.3,209.1L475.4,210.3L456.2,218.2L442.6,224.7L425.5,228.0L415.5,230.6L400.0,219.7L386.7,198.6L389.1,197.6L388.1,190.9L383.3,177.4L400.0,180.3L416.9,183.8L416.9,188.3L432.0,191.5L416.9,188.3L416.9,183.8L383.3,177.4L389.1,197.6L386.7,198.6L400.0,201.5L420.0,203.0L442.6,201.5L459.0,202.5L475.4,210.3L479.3,209.1" stroke="#f1c40f" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+        <!-- Journey 2 (Acts 15:36-18:22): Cilician Gates→Phrygia→Troas→Samothrace→Via Egnatia→Athens→Corinth→sea back -->
+        <!-- J2: Berea→Athens is SEA (Acts 17:15 "Paul sent ahead by sea") — arc east into Aegean then south to Athens -->
+        <path id="path-j2" class="journey-path" d="M479.3,209.1L468.1,204.5L457.9,198.2L452.8,190.9L432.0,191.5L416.9,188.3L416.9,183.8L391.5,174.2L366.0,166.7L340.4,159.1L309.3,155.3L297.9,144.4L278.0,138.6L277.3,136.2L258.7,136.4L254.3,141.8L241.7,144.5Q285,130 291,162Q290,177 267.7,182.1L254.1,183.2L272.3,189.4L306.4,184.8L329.2,182.6L348.9,204.5L383.0,227.3L442.6,257.6L457.7,265.2L463.3,276.2L479.3,209.1" stroke="#e67e22" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+        <!-- Journey 3 (Acts 18:23-21:17): Galatia→Ephesus→Macedonia→Corinth→island hops→Miletus→Tyre→Jerusalem -->
+        <path id="path-j3" class="journey-path" d="M479.3,209.1L457.9,198.2L452.8,190.9L432.0,191.5L416.9,183.8L391.5,174.2L357.4,174.2L329.2,182.6L314.9,174.2L309.3,155.3L277.3,136.2L254.3,141.8L254.1,183.2L254.3,141.8L277.3,136.2L309.3,155.3L312.2,159.2L315.7,165.2L323.1,185.6L328.2,188.9L344.2,205.6L362.9,206.8L408.5,230.3L460.9,258.6L457.7,265.2L463.3,276.2" stroke="#9b59b6" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+        <!-- Voyage to Rome (Acts 27-28): Sidon→under Cyprus→Myra→Crete→storm SW→Malta→Sicily→Puteoli→Rome -->
+        <!-- J4: "Under the lee of Cyprus" = north sea channel between Cyprus & Turkey (not through Paphos island) -->
+        <path id="path-j4" class="journey-path" d="M457.7,265.2L465.9,249.1L451.1,219.7Q424,213 374.3,208.2L329.9,201.8L314.9,212.1L287.7,228.5L255.3,234.8L204.3,242.4L170.2,234.8L108.6,213.0L124.1,195.9L130.2,182.3L104.2,138.9L93.6,128.8L76.6,122.7" stroke="#e74c3c" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" stroke-dasharray="6,3"/>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 4: CITIES                            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="layer-cities">
+        <!-- Jerusalem -->
+        <g class="city-group" id="city-jerusalem" data-name="Jerusalem" data-lon="35.216" data-lat="31.768">
+            <circle class="city-dot" cx="463.3" cy="276.2" r="3"/>
+            <circle class="city-pulse" cx="463.3" cy="276.2" r="3"/>
+            <text class="city-label" x="468.3" y="276.2" text-anchor="start">Jerusalem</text>
+        </g>
+        <!-- Damascus -->
+        <g class="city-group" id="city-damascus" data-name="Damascus" data-lon="36.292" data-lat="33.51">
+            <circle class="city-dot" cx="481.6" cy="249.8" r="3"/>
+            <circle class="city-pulse" cx="481.6" cy="249.8" r="3"/>
+            <text class="city-label" x="486.6" y="249.8" text-anchor="start">Damascus</text>
+        </g>
+        <!-- Antioch -->
+        <g class="city-group" id="city-antioch-syria" data-name="Antioch" data-lon="36.16" data-lat="36.202">
+            <circle class="city-dot" cx="479.3" cy="209.1" r="3"/>
+            <circle class="city-pulse" cx="479.3" cy="209.1" r="3"/>
+            <text class="city-label" x="484.3" y="209.1" text-anchor="start">Antioch</text>
+        </g>
+        <!-- Tarsus -->
+        <g class="city-group" id="city-tarsus" data-name="Tarsus" data-lon="34.895" data-lat="36.917">
+            <circle class="city-dot" cx="457.8" cy="198.2" r="3"/>
+            <circle class="city-pulse" cx="457.8" cy="198.2" r="3"/>
+            <text class="city-label" x="452.8" y="198.2" text-anchor="end">Tarsus</text>
+        </g>
+        <!-- Caesarea -->
+        <g class="city-group" id="city-caesarea" data-name="Caesarea" data-lon="34.89" data-lat="32.5">
+            <circle class="city-dot" cx="457.7" cy="265.2" r="3"/>
+            <circle class="city-pulse" cx="457.7" cy="265.2" r="3"/>
+            <text class="city-label" x="452.7" y="265.2" text-anchor="end">Caesarea</text>
+        </g>
+        <!-- Salamis -->
+        <g class="city-group" id="city-salamis" data-name="Salamis" data-lon="33.9" data-lat="35.17">
+            <circle class="city-dot" cx="440.9" cy="224.7" r="3"/>
+            <circle class="city-pulse" cx="440.9" cy="224.7" r="3"/>
+            <text class="city-label" x="445.9" y="224.7" text-anchor="start">Salamis</text>
+        </g>
+        <!-- Paphos -->
+        <g class="city-group" id="city-paphos" data-name="Paphos" data-lon="32.413" data-lat="34.776">
+            <circle class="city-dot" cx="415.5" cy="230.7" r="3"/>
+            <circle class="city-pulse" cx="415.5" cy="230.7" r="3"/>
+            <text class="city-label" x="410.5" y="230.7" text-anchor="end">Paphos</text>
+        </g>
+        <!-- Perga -->
+        <g class="city-group" id="city-perga" data-name="Perga" data-lon="30.858" data-lat="36.961">
+            <circle class="city-dot" cx="389.1" cy="197.6" r="3"/>
+            <circle class="city-pulse" cx="389.1" cy="197.6" r="3"/>
+            <text class="city-label" x="394.1" y="197.6" text-anchor="start">Perga</text>
+        </g>
+        <!-- Pisidian Antioch -->
+        <g class="city-group" id="city-antioch-pis" data-name="Pisidian Antioch" data-lon="30.517" data-lat="38.29">
+            <circle class="city-dot" cx="383.3" cy="177.4" r="3"/>
+            <circle class="city-pulse" cx="383.3" cy="177.4" r="3"/>
+            <text class="city-label" x="388.3" y="177.4" text-anchor="start">Pisidian Antioch</text>
+        </g>
+        <!-- Iconium -->
+        <g class="city-group" id="city-iconium" data-name="Iconium" data-lon="32.487" data-lat="37.874">
+            <circle class="city-dot" cx="416.8" cy="183.7" r="3"/>
+            <circle class="city-pulse" cx="416.8" cy="183.7" r="3"/>
+            <text class="city-label" x="421.8" y="183.7" text-anchor="start">Iconium</text>
+        </g>
+        <!-- Lystra -->
+        <g class="city-group" id="city-lystra" data-name="Lystra" data-lon="32.489" data-lat="37.573">
+            <circle class="city-dot" cx="416.8" cy="188.3" r="3"/>
+            <circle class="city-pulse" cx="416.8" cy="188.3" r="3"/>
+            <text class="city-label" x="411.8" y="188.3" text-anchor="end">Lystra</text>
+        </g>
+        <!-- Derbe -->
+        <g class="city-group" id="city-derbe" data-name="Derbe" data-lon="33.376" data-lat="37.358">
+            <circle class="city-dot" cx="431.9" cy="191.5" r="3"/>
+            <circle class="city-pulse" cx="431.9" cy="191.5" r="3"/>
+            <text class="city-label" x="436.9" y="191.5" text-anchor="start">Derbe</text>
+        </g>
+        <!-- Troas -->
+        <g class="city-group" id="city-troas" data-name="Troas" data-lon="26.169" data-lat="39.75">
+            <circle class="city-dot" cx="309.3" cy="155.3" r="3"/>
+            <circle class="city-pulse" cx="309.3" cy="155.3" r="3"/>
+            <text class="city-label" x="304.3" y="155.3" text-anchor="end">Troas</text>
+        </g>
+        <!-- Philippi -->
+        <g class="city-group" id="city-philippi" data-name="Philippi" data-lon="24.287" data-lat="41.013">
+            <circle class="city-dot" cx="277.2" cy="136.2" r="3"/>
+            <circle class="city-pulse" cx="277.2" cy="136.2" r="3"/>
+            <text class="city-label" x="282.2" y="136.2" text-anchor="start">Philippi</text>
+        </g>
+        <!-- Thessalonica -->
+        <g class="city-group" id="city-thessalonica" data-name="Thessalonica" data-lon="22.94" data-lat="40.64">
+            <circle class="city-dot" cx="254.3" cy="141.8" r="3"/>
+            <circle class="city-pulse" cx="254.3" cy="141.8" r="3"/>
+            <text class="city-label" x="249.3" y="141.8" text-anchor="end">Thessalonica</text>
+        </g>
+        <!-- Berea -->
+        <g class="city-group" id="city-berea" data-name="Berea" data-lon="22.204" data-lat="40.461">
+            <circle class="city-dot" cx="241.8" cy="144.5" r="3"/>
+            <circle class="city-pulse" cx="241.8" cy="144.5" r="3"/>
+            <text class="city-label" x="236.8" y="144.5" text-anchor="end">Berea</text>
+        </g>
+        <!-- Athens -->
+        <g class="city-group" id="city-athens" data-name="Athens" data-lon="23.728" data-lat="37.984">
+            <circle class="city-dot" cx="267.7" cy="182.1" r="3"/>
+            <circle class="city-pulse" cx="267.7" cy="182.1" r="3"/>
+            <text class="city-label" x="262.7" y="182.1" text-anchor="end">Athens</text>
+        </g>
+        <!-- Corinth -->
+        <g class="city-group" id="city-corinth" data-name="Corinth" data-lon="22.932" data-lat="37.906">
+            <circle class="city-dot" cx="254.2" cy="183.2" r="3"/>
+            <circle class="city-pulse" cx="254.2" cy="183.2" r="3"/>
+            <text class="city-label" x="259.2" y="183.2" text-anchor="start">Corinth</text>
+        </g>
+        <!-- Ephesus -->
+        <g class="city-group" id="city-ephesus" data-name="Ephesus" data-lon="27.341" data-lat="37.949">
+            <circle class="city-dot" cx="329.2" cy="182.6" r="3"/>
+            <circle class="city-pulse" cx="329.2" cy="182.6" r="3"/>
+            <text class="city-label" x="324.2" y="182.6" text-anchor="end">Ephesus</text>
+        </g>
+        <!-- Miletus -->
+        <g class="city-group" id="city-miletus" data-name="Miletus" data-lon="27.278" data-lat="37.53">
+            <circle class="city-dot" cx="328.1" cy="188.9" r="3"/>
+            <circle class="city-pulse" cx="328.1" cy="188.9" r="3"/>
+            <text class="city-label" x="323.1" y="188.9" text-anchor="end">Miletus</text>
+        </g>
+        <!-- Rome -->
+        <g class="city-group" id="city-rome" data-name="Rome" data-lon="12.496" data-lat="41.902">
+            <circle class="city-dot" cx="76.5" cy="122.7" r="3"/>
+            <circle class="city-pulse" cx="76.5" cy="122.7" r="3"/>
+            <text class="city-label" x="71.5" y="122.7" text-anchor="end">Rome</text>
+        </g>
+        <!-- Malta -->
+        <g class="city-group" id="city-malta" data-name="Malta" data-lon="14.375" data-lat="35.937">
+            <circle class="city-dot" cx="108.5" cy="213.1" r="3"/>
+            <circle class="city-pulse" cx="108.5" cy="213.1" r="3"/>
+            <text class="city-label" x="113.5" y="213.1" text-anchor="start">Malta</text>
+        </g>
+        <!-- Lasea/Crete -->
+        <g class="city-group" id="city-lasea" data-name="Lasea/Crete" data-lon="24.9" data-lat="34.92">
+            <circle class="city-dot" cx="287.7" cy="228.5" r="3"/>
+            <circle class="city-pulse" cx="287.7" cy="228.5" r="3"/>
+            <text class="city-label" x="292.7" y="228.5" text-anchor="start">Lasea/Crete</text>
+        </g>
+        </g>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- UI CONTROLS                                -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="ui-controls" transform="translate(10, 10)">
+        <!-- Play/Pause Button -->
+        <rect class="ui-btn" id="play-pause-btn" width="40" height="26" rx="4"/>
+        <text class="ui-btn-text" x="20" y="18" text-anchor="middle" id="play-pause-text">▶</text>
+        
+        <!-- Journey Buttons -->
+        <rect class="ui-btn journey-btn" id="j1-btn" x="50" y="0" width="26" height="20" rx="4" fill="#f1c40f"/>
+        <text class="ui-btn-text journey-btn" x="63" y="13" text-anchor="middle">J1</text>
+        
+        <rect class="ui-btn journey-btn" id="j2-btn" x="80" y="0" width="26" height="20" rx="4" fill="#e67e22"/>
+        <text class="ui-btn-text journey-btn" x="93" y="13" text-anchor="middle">J2</text>
+        
+        <rect class="ui-btn journey-btn" id="j3-btn" x="110" y="0" width="26" height="20" rx="4" fill="#9b59b6"/>
+        <text class="ui-btn-text journey-btn" x="123" y="13" text-anchor="middle">J3</text>
+        
+        <rect class="ui-btn journey-btn" id="j4-btn" x="140" y="0" width="26" height="20" rx="4" fill="#e74c3c"/>
+        <text class="ui-btn-text journey-btn" x="153" y="13" text-anchor="middle">J4</text>
+
+        <!-- Speed toggle button -->
+        <rect class="ui-btn" id="speed-btn" x="176" y="0" width="36" height="20" rx="4" fill="rgba(255,255,255,0.15)"/>
+        <text class="ui-btn-text" x="194" y="13" text-anchor="middle" id="speed-text">1×</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- INFO PANEL                                 -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="info-panel" transform="translate(200, 355)">
+        <rect class="info-bg" width="400" height="115"/>
+        
+        <!-- Journey Badge -->
+        <rect id="journey-badge" x="15" y="15" width="40" height="20" rx="10" fill="#f1c40f"/>
+        <text class="journey-badge info-text" x="35" y="27" text-anchor="middle" id="journey-badge-text">J1</text>
+        
+        <!-- Mode icon (🚶 land / ⛵ sea) -->
+        <text id="mode-icon" x="60" y="27" font-size="13" font-family="sans-serif" fill="white" opacity="0.85">🚶</text>
+
+        <!-- Segment Info -->
+        <text class="info-text" x="80" y="27" fill="#999" id="segment-info">1/13</text>
+        
+        <!-- City Name -->
+        <text class="city-name info-text" x="15" y="50" id="city-name">→ Seleucia</text>
+        
+        <!-- Reference -->
+        <text class="reference info-text" x="15" y="68" id="reference">Acts 13:1-3</text>
+        
+        <!-- Event Text -->
+        <text class="event-text info-text" x="15" y="85" id="event-text">Sent off by church with prayer and fasting</text>
+        <text class="event-text info-text" x="15" y="98" id="event-text-2"></text>
+        
+        <!-- Close Button -->
+        <text class="close-btn info-text" x="375" y="25" text-anchor="middle" id="close-btn">×</text>
+
+        <!-- Prev / Next navigation arrows -->
+        <text id="prev-btn" x="18" y="103" text-anchor="middle" font-size="18" fill="#aaa" cursor="pointer" font-family="sans-serif">◀</text>
+        <text id="next-btn" x="382" y="103" text-anchor="middle" font-size="18" fill="#aaa" cursor="pointer" font-family="sans-serif">▶</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 7: TRAVELER ICON                     -->
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- clip for illustration area -->
+    <defs><clipPath id="ep-clip"><rect x="527" y="56" width="260" height="139"/></clipPath></defs>
+
+    <!-- EVENT SCENE PANEL: right side (Black Sea / Russia area) -->
+    <g id="event-scene" style="display:none">
+      <!-- outer panel -->
+      <rect x="525" y="28" width="263" height="200" rx="8" fill="rgba(10,15,35,0.93)"/>
+      <rect id="ep-border" x="525" y="28" width="263" height="200" rx="8" fill="none" stroke="#f1c40f" stroke-width="1.5"/>
+      <!-- header strip -->
+      <rect x="526" y="29" width="261" height="27" rx="7" fill="rgba(255,255,255,0.07)"/>
+      <circle id="ep-dot" cx="540" cy="43" r="5" fill="#f1c40f"/>
+      <text id="ep-title" x="551" y="47" fill="#f1c40f" font-size="10" font-weight="bold" font-family="'Segoe UI',sans-serif" letter-spacing="0.5">EVENT</text>
+      <!-- illustration container (clipped) -->
+      <g id="ep-illo" clip-path="url(#ep-clip)"/>
+      <!-- caption strip -->
+      <rect x="525" y="195" width="263" height="33" fill="rgba(0,0,0,0.6)"/>
+      <text id="ep-cap1" x="656" y="209" text-anchor="middle" fill="#e8d5a3" font-size="9" font-family="'Segoe UI',sans-serif"/>
+      <text id="ep-cap2" x="656" y="222" text-anchor="middle" fill="#a08848" font-size="7.5" font-family="'Segoe UI',sans-serif"/>
+    </g>
+
+    <!-- LAYER 8: EVENT EFFECTS -->
+    <g id="layer-effects" style="pointer-events:none"></g>
+
+    <g id="traveler" style="display:none">
+      <!-- Land mode: walking person in 1st-century traveler dress -->
+      <g id="traveler-land">
+        <g transform="scale(0.6)">
+          <!-- 1. shadow -->
+          <ellipse cx="0" cy="15" rx="4.5" ry="1.5" fill="rgba(0,0,0,0.3)"/>
+          <!-- 2. legs drawn FIRST so robe hem covers their tops -->
+          <g class="walk-leg-l" transform="translate(-1.5,4)">
+            <line x1="0" y1="0" x2="-1" y2="11" stroke="#5a3820" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <g class="walk-leg-r" transform="translate(1.5,4)">
+            <line x1="0" y1="0" x2="1" y2="11" stroke="#5a3820" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <!-- 3. outer robe painted over leg tops -->
+          <polygon points="-1,-9 -6,6 6,6 1,-9" fill="#6b5535" stroke="#4a3520" stroke-width="0.6"/>
+          <!-- 4. inner tunic highlight -->
+          <polygon points="-1,-9 -3.5,6 3.5,6 1,-9" fill="#d4b87a" stroke="none"/>
+          <!-- 5. belt -->
+          <rect x="-3.5" y="-2.5" width="7" height="2" rx="0.5" fill="#3a2810" opacity="0.85"/>
+          <!-- 6. arms hang DOWN from shoulders, swing fwd/back -->
+          <g class="walk-arm-l" transform="translate(-2,-8)">
+            <line x1="0" y1="0" x2="0" y2="7" stroke="#c8a060" stroke-width="2.4" stroke-linecap="round"/>
+          </g>
+          <g class="walk-arm-r" transform="translate(2,-8)">
+            <line x1="0" y1="0" x2="0" y2="7" stroke="#c8a060" stroke-width="2.4" stroke-linecap="round"/>
+          </g>
+          <!-- 7. head covering -->
+          <ellipse cx="0" cy="-14.5" rx="4" ry="2.3" fill="#c8a050" stroke="#7a5010" stroke-width="0.6"/>
+          <!-- 8. face -->
+          <circle cx="0" cy="-12" r="3" fill="#f0c890" stroke="#8a5020" stroke-width="0.7"/>
+          <!-- 9. walking staff -->
+          <line x1="7" y1="-7" x2="8" y2="14" stroke="#7a4a10" stroke-width="1.6" stroke-linecap="round"/>
+        </g>
+      </g>
+      <!-- Sea mode: boat (hull arc + mast + sail) -->
+      <g id="traveler-sea" style="display:none">
+        <path d="M-8,2 Q0,8 8,2" fill="#c8a96e" stroke="#7a5c2e" stroke-width="1.2"/>
+        <line x1="0" y1="-8" x2="0" y2="2" stroke="#7a5c2e" stroke-width="1.2"/>
+        <path d="M0,-8 L6,-2 L0,0 Z" fill="#e8d5a3" stroke="none"/>
+      </g>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SPLASH SCREEN (tap to start)               -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="splash" style="cursor:pointer">
+      <rect x="0" y="0" width="800" height="500" fill="rgba(10,20,40,0.88)"/>
+      <!-- Title -->
+      <text x="400" y="185" text-anchor="middle" font-size="38" font-weight="bold"
+            font-family="Georgia, serif" fill="white" letter-spacing="2">TRAVELS OF PAUL</text>
+      <!-- Subtitle -->
+      <text x="400" y="220" text-anchor="middle" font-size="14"
+            font-family="sans-serif" fill="#aac4e8">Four Missionary Journeys · Acts 13–28</text>
+      <!-- Divider -->
+      <line x1="280" y1="238" x2="520" y2="238" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+      <!-- Journey colour key -->
+      <rect x="270" y="255" width="14" height="8" rx="2" fill="#f1c40f"/>
+      <text x="290" y="264" font-size="11" font-family="sans-serif" fill="#ccc">Journey 1 · Cyprus &amp; Galatia</text>
+      <rect x="270" y="273" width="14" height="8" rx="2" fill="#e67e22"/>
+      <text x="290" y="282" font-size="11" font-family="sans-serif" fill="#ccc">Journey 2 · Macedonia &amp; Greece</text>
+      <rect x="270" y="291" width="14" height="8" rx="2" fill="#9b59b6"/>
+      <text x="290" y="300" font-size="11" font-family="sans-serif" fill="#ccc">Journey 3 · Asia Minor &amp; Ephesus</text>
+      <rect x="270" y="309" width="14" height="8" rx="2" fill="#e74c3c"/>
+      <text x="290" y="318" font-size="11" font-family="sans-serif" fill="#ccc">Journey 4 · Rome</text>
+      <!-- Tap prompt -->
+      <text x="400" y="365" text-anchor="middle" font-size="15"
+            font-family="sans-serif" fill="rgba(255,255,255,0.6)">Tap to begin</text>
+    </g>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LAYER 10: TIMELINE PROGRESS BAR            -->
+    <!-- ═══════════════════════════════════════════ -->
+    <g id="timeline-bar" style="cursor:pointer">
+      <!-- Wider tap target (invisible) -->
+      <rect x="10" y="478" width="780" height="22" fill="transparent"/>
+      <!-- Track background -->
+      <rect id="timeline-track" x="10" y="487" width="780" height="6" rx="3" fill="rgba(0,0,0,0.45)"/>
+      <!-- Already-traveled fill (dimmer) -->
+      <rect id="timeline-fill" x="10" y="487" width="0" height="6" rx="3" fill="#f1c40f" opacity="0.5"/>
+      <!-- Current segment highlight (bright, from prev city to scrubber) -->
+      <rect id="timeline-segment-band" x="10" y="487" width="0" height="6" fill="#f1c40f" opacity="1"/>
+      <!-- City dots at segment boundaries (populated by JS) -->
+      <g id="timeline-ticks"></g>
+      <!-- FROM label (left of current segment) -->
+      <text id="timeline-from-label" x="10" y="484" font-size="7" font-family="sans-serif"
+            fill="rgba(255,255,255,0.6)" text-anchor="start"></text>
+      <!-- TO label (at scrubber / destination) -->
+      <text id="timeline-to-label" x="10" y="484" font-size="7" font-family="sans-serif"
+            fill="white" text-anchor="middle" font-weight="bold"></text>
+      <!-- Scrubber dot (on top of everything) -->
+      <circle id="timeline-scrubber" cx="10" cy="490" r="5" fill="white" stroke="#222" stroke-width="1.5"/>
+    </g>
+
+</svg>
+
+<script>
+// Segment data (40 segments total)
+const SEGMENTS = [
+  {id:"j1-1", journey:"J1", seq:1, from:"Antioch", to:"Seleucia", mode:"land", ref:"Acts 13:1-3", event:"Sent off by church with prayer and fasting"},
+  {id:"j1-2", journey:"J1", seq:2, from:"Seleucia", to:"Salamis", mode:"sea", ref:"Acts 13:4", event:"Sailed to Cyprus"},
+  {id:"j1-3", journey:"J1", seq:3, from:"Salamis", to:"Paphos", mode:"land", ref:"Acts 13:6-12", event:"Crossed Cyprus. Elymas the sorcerer struck blind"},
+  {id:"j1-4", journey:"J1", seq:4, from:"Paphos", to:"Perga", mode:"sea", ref:"Acts 13:13", event:"Sailed to Pamphylia. John Mark departs home"},
+  {id:"j1-5", journey:"J1", seq:5, from:"Perga", to:"Pisidian Antioch", mode:"land", ref:"Acts 13:14", event:"Trek up mountain roads. Preached in synagogue"},
+  {id:"j1-6", journey:"J1", seq:6, from:"Pisidian Antioch", to:"Iconium", mode:"land", ref:"Acts 13:51", event:"Expelled. Shook dust from feet"},
+  {id:"j1-7", journey:"J1", seq:7, from:"Iconium", to:"Lystra", mode:"land", ref:"Acts 14:6", event:"Plot to stone them. Fled"},
+  {id:"j1-8", journey:"J1", seq:8, from:"Lystra", to:"Derbe", mode:"land", ref:"Acts 14:19-20", event:"Paul stoned and left for dead. Rose up"},
+  {id:"j1-9", journey:"J1", seq:9, from:"Derbe", to:"Lystra", mode:"land", ref:"Acts 14:21", event:"Return journey. Strengthening disciples"},
+  {id:"j1-10", journey:"J1", seq:10, from:"Lystra", to:"Iconium", mode:"land", ref:"Acts 14:21", event:"Appointing elders in each church"},
+  {id:"j1-11", journey:"J1", seq:11, from:"Iconium", to:"Pisidian Antioch", mode:"land", ref:"Acts 14:21", event:"Confirming souls"},
+  {id:"j1-12", journey:"J1", seq:12, from:"Pisidian Antioch", to:"Attalia", mode:"land", ref:"Acts 14:25", event:"Preached at Perga"},
+  {id:"j1-13", journey:"J1", seq:13, from:"Attalia", to:"Antioch", mode:"sea", ref:"Acts 14:26-28", event:"Sailed back. Reported all God had done"},
+  {id:"j2-1", journey:"J2", seq:1, from:"Antioch", to:"Tarsus", mode:"land", ref:"Acts 15:41", event:"Strengthening churches through Syria & Cilicia"},
+  {id:"j2-2", journey:"J2", seq:2, from:"Tarsus", to:"Lystra", mode:"land", ref:"Acts 16:1-3", event:"Cilician Gates pass. Timothy circumcised and joins"},
+  {id:"j2-3", journey:"J2", seq:3, from:"Lystra", to:"Troas", mode:"land", ref:"Acts 16:6-8", event:"Spirit forbids Asia & Bithynia. Macedonian call vision"},
+  {id:"j2-4", journey:"J2", seq:4, from:"Troas", to:"Philippi", mode:"sea", ref:"Acts 16:11-12", event:"Sea via Samothrace. First church in Europe"},
+  {id:"j2-5", journey:"J2", seq:5, from:"Philippi", to:"Thessalonica", mode:"land", ref:"Acts 17:1", event:"Via Egnatia road. Jason's house attacked"},
+  {id:"j2-6", journey:"J2", seq:6, from:"Thessalonica", to:"Berea", mode:"land", ref:"Acts 17:10", event:"Noble Bereans searched scriptures daily"},
+  {id:"j2-7", journey:"J2", seq:7, from:"Berea", to:"Athens", mode:"sea", ref:"Acts 17:15", event:"Paul sent ahead by sea"},
+  {id:"j2-8", journey:"J2", seq:8, from:"Athens", to:"Corinth", mode:"land", ref:"Acts 18:1", event:"Mars Hill sermon. 18 months in Corinth"},
+  {id:"j2-9", journey:"J2", seq:9, from:"Corinth", to:"Ephesus", mode:"sea", ref:"Acts 18:19", event:"Brief stop in Ephesus"},
+  {id:"j2-10", journey:"J2", seq:10, from:"Ephesus", to:"Caesarea", mode:"sea", ref:"Acts 18:22", event:"Sailed to Caesarea"},
+  {id:"j2-11", journey:"J2", seq:11, from:"Caesarea", to:"Jerusalem", mode:"land", ref:"Acts 18:22", event:"Greeted the church"},
+  {id:"j2-12", journey:"J2", seq:12, from:"Jerusalem", to:"Antioch", mode:"land", ref:"Acts 18:22", event:"Returned to home base"},
+  {id:"j3-1", journey:"J3", seq:1, from:"Antioch", to:"Ephesus", mode:"land", ref:"Acts 18:23-19:1", event:"Through Galatia & Phrygia strengthening disciples"},
+  {id:"j3-2", journey:"J3", seq:2, from:"Ephesus", to:"Ephesus", mode:"land", ref:"Acts 19:1-41", event:"3 years in Ephesus. Riot of Artemis"},
+  {id:"j3-3", journey:"J3", seq:3, from:"Ephesus", to:"Philippi", mode:"sea", ref:"Acts 20:1", event:"Left after riot. North through Macedonia"},
+  {id:"j3-4", journey:"J3", seq:4, from:"Philippi", to:"Corinth", mode:"land", ref:"Acts 20:2", event:"3 months in Greece (Corinth)"},
+  {id:"j3-5", journey:"J3", seq:5, from:"Corinth", to:"Philippi", mode:"land", ref:"Acts 20:3", event:"Plot found. Returns via Macedonia"},
+  {id:"j3-6", journey:"J3", seq:6, from:"Philippi", to:"Troas", mode:"sea", ref:"Acts 20:6", event:"Sailed from Philippi after Passover"},
+  {id:"j3-7", journey:"J3", seq:7, from:"Troas", to:"Assos", mode:"land", ref:"Acts 20:13", event:"Paul walked alone to Assos"},
+  {id:"j3-8", journey:"J3", seq:8, from:"Assos", to:"Miletus", mode:"sea", ref:"Acts 20:14", event:"Island hops: Lesbos, Chios, Samos"},
+  {id:"j3-9", journey:"J3", seq:9, from:"Miletus", to:"Tyre", mode:"sea", ref:"Acts 21:1", event:"Rhodes, Patara. Farewell to Ephesian elders at Miletus"},
+  {id:"j3-10", journey:"J3", seq:10, from:"Tyre", to:"Jerusalem", mode:"land", ref:"Acts 21:8-17", event:"Ptolemais, Caesarea (Agabus prophecy), Jerusalem"},
+  {id:"j4-1", journey:"J4", seq:1, from:"Caesarea", to:"Myra", mode:"sea", ref:"Acts 27:1-5", event:"Sidon, under lee of Cyprus, Myra in Lycia"},
+  {id:"j4-2", journey:"J4", seq:2, from:"Myra", to:"Fair Havens", mode:"sea", ref:"Acts 27:6-8", event:"Difficult sailing. Reached Fair Havens, Crete"},
+  {id:"j4-3", journey:"J4", seq:3, from:"Fair Havens", to:"Malta", mode:"sea", ref:"Acts 27:14-44", event:"Euroclydon storm. 14 days adrift. Shipwreck on Malta"},
+  {id:"j4-4", journey:"J4", seq:4, from:"Malta", to:"Syracuse", mode:"sea", ref:"Acts 28:11-12", event:"3 months on Malta. Sailed to Syracuse"},
+  {id:"j4-5", journey:"J4", seq:5, from:"Syracuse", to:"Rome", mode:"sea", ref:"Acts 28:13-16", event:"Rhegium, Puteoli, Appian Way. Arrived Rome"}
+];
+
+// City coordinates for click handler
+const CITY_COORDS = {
+  "Jerusalem": {cx:463.3, cy:276.2},
+  "Damascus": {cx:481.6, cy:249.8},
+  "Antioch": {cx:479.3, cy:209.1},
+  "Tarsus": {cx:457.8, cy:198.2},
+  "Caesarea": {cx:457.7, cy:265.2},
+  "Salamis": {cx:440.9, cy:224.7},
+  "Paphos": {cx:415.5, cy:230.7},
+  "Perga": {cx:389.1, cy:197.6},
+  "Pisidian Antioch": {cx:383.3, cy:177.4},
+  "Iconium": {cx:416.8, cy:183.7},
+  "Lystra": {cx:416.8, cy:188.3},
+  "Derbe": {cx:431.9, cy:191.5},
+  "Troas": {cx:309.3, cy:155.3},
+  "Philippi": {cx:277.2, cy:136.2},
+  "Thessalonica": {cx:254.3, cy:141.8},
+  "Berea": {cx:241.8, cy:144.5},
+  "Athens": {cx:267.7, cy:182.1},
+  "Corinth": {cx:254.2, cy:183.2},
+  "Ephesus": {cx:329.2, cy:182.6},
+  "Miletus": {cx:328.1, cy:188.9},
+  "Rome": {cx:76.5, cy:122.7},
+  "Malta": {cx:108.5, cy:213.1},
+  "Lasea/Crete": {cx:287.7, cy:228.5},
+  "Seleucia": {cx:475.4, cy:210.3}, // approximated
+  "Attalia": {cx:400.0, cy:219.7}, // approximated
+  "Fair Havens": {cx:287.7, cy:228.5}, // same as Crete
+  "Assos": {cx:312.2, cy:159.2}, // approximated
+  "Myra": {cx:365.0, cy:200.0}, // approximated
+  "Syracuse": {cx:130.2, cy:182.3}, // approximated
+  "Tyre": {cx:460.9, cy:258.6} // approximated
+};
+
+// Maps segment destination names → SVG element IDs
+// Waypoints with no SVG marker use fallback {cx,cy} coords
+const CITY_ID_MAP = {
+  "Antioch":           {id: "city-antioch-syria"},
+  "Pisidian Antioch":  {id: "city-antioch-pis"},
+  "Lasea/Crete":       {id: "city-lasea"},
+  "Fair Havens":       {id: "city-lasea"},   // same location
+  "Jerusalem":         {id: "city-jerusalem"},
+  "Damascus":          {id: "city-damascus"},
+  "Tarsus":            {id: "city-tarsus"},
+  "Caesarea":          {id: "city-caesarea"},
+  "Salamis":           {id: "city-salamis"},
+  "Paphos":            {id: "city-paphos"},
+  "Perga":             {id: "city-perga"},
+  "Iconium":           {id: "city-iconium"},
+  "Lystra":            {id: "city-lystra"},
+  "Derbe":             {id: "city-derbe"},
+  "Troas":             {id: "city-troas"},
+  "Philippi":          {id: "city-philippi"},
+  "Thessalonica":      {id: "city-thessalonica"},
+  "Berea":             {id: "city-berea"},
+  "Athens":            {id: "city-athens"},
+  "Corinth":           {id: "city-corinth"},
+  "Ephesus":           {id: "city-ephesus"},
+  "Miletus":           {id: "city-miletus"},
+  "Rome":              {id: "city-rome"},
+  "Malta":             {id: "city-malta"},
+  // Waypoints without SVG markers — use projected coords
+  "Seleucia":   {cx: 475.4, cy: 210.3},
+  "Attalia":    {cx: 400.0, cy: 219.7},
+  "Assos":      {cx: 312.2, cy: 159.2},
+  "Myra":       {cx: 365.0, cy: 200.0},
+  "Syracuse":   {cx: 130.2, cy: 182.3},
+  "Tyre":       {cx: 460.9, cy: 258.6}
+};
+
+// Build city events map
+const CITY_EVENTS = {};
+SEGMENTS.forEach(segment => {
+  // Add event to destination city
+  if (!CITY_EVENTS[segment.to]) {
+    CITY_EVENTS[segment.to] = [];
+  }
+  CITY_EVENTS[segment.to].push(segment);
+  
+  // Add starting city for first segment of journey
+  if (segment.seq === 1) {
+    if (!CITY_EVENTS[segment.from]) {
+      CITY_EVENTS[segment.from] = [];
+    }
+    CITY_EVENTS[segment.from].push({
+      ...segment,
+      event: `Starting point for ${segment.journey}`,
+      ref: segment.ref
+    });
+  }
+});
+
+// Journey colors
+const JOURNEY_COLORS = {
+  "J1": "#f1c40f",
+  "J2": "#e67e22", 
+  "J3": "#9b59b6",
+  "J4": "#e74c3c"
+};
+
+let lastTravelerMode = null;
+
+// Animation state
+let isPlaying = false;
+let currentJourney = null;
+let animationId = null;
+let startTime = null;
+let currentSegmentIndex = 0;
+
+// Get DOM elements
+const paths = {
+  J1: document.getElementById('path-j1'),
+  J2: document.getElementById('path-j2'),
+  J3: document.getElementById('path-j3'),
+  J4: document.getElementById('path-j4')
+};
+
+const playPauseBtn = document.getElementById('play-pause-btn');
+const playPauseText = document.getElementById('play-pause-text');
+const infoPanel = document.getElementById('info-panel');
+const closeBtn = document.getElementById('close-btn');
+
+// Initialize path lengths and dasharray
+Object.keys(paths).forEach(journey => {
+  const path = paths[journey];
+  const length = path.getTotalLength();
+  path.style.strokeDasharray = length;
+  path.style.strokeDashoffset = length; // Start invisible
+});
+
+// Get segments for a journey
+function getJourneySegments(journey) {
+  return SEGMENTS.filter(s => s.journey === journey);
+}
+
+// Update info panel
+let infoPanelTimer = null;
+function resetInfoPanelTimer() {
+  if (infoPanelTimer) clearTimeout(infoPanelTimer);
+  // Auto-hide only when not animating
+  infoPanelTimer = setTimeout(() => {
+    if (!isPlaying) infoPanel.classList.remove('visible');
+  }, 8000);
+}
+
+function updateInfoPanel(segment, segmentIndex, totalSegments) {
+  document.getElementById('journey-badge').setAttribute('fill', JOURNEY_COLORS[segment.journey]);
+  document.getElementById('journey-badge-text').textContent = segment.journey;
+  document.getElementById('mode-icon').textContent = segment.mode === 'sea' ? '⛵' : '🚶';
+  document.getElementById('segment-info').textContent = `${segmentIndex + 1}/${totalSegments}`;
+  document.getElementById('city-name').textContent = `→ ${segment.to}`;
+  document.getElementById('reference').textContent = segment.ref;
+  
+  // Wrap long event text
+  const eventText = segment.event;
+  const event1 = document.getElementById('event-text');
+  const event2 = document.getElementById('event-text-2');
+  
+  if (eventText.length > 50) {
+    const words = eventText.split(' ');
+    const mid = Math.ceil(words.length / 2);
+    event1.textContent = words.slice(0, mid).join(' ');
+    event2.textContent = words.slice(mid).join(' ');
+  } else {
+    event1.textContent = eventText;
+    event2.textContent = '';
+  }
+  
+  infoPanel.classList.add('visible');
+  resetInfoPanelTimer();
+}
+
+// Show completion message
+function showCompletion(journey) {
+  document.getElementById('journey-badge').setAttribute('fill', JOURNEY_COLORS[journey]);
+  document.getElementById('journey-badge-text').textContent = journey;
+  document.getElementById('segment-info').textContent = 'Complete';
+  document.getElementById('city-name').textContent = `${journey} Journey Complete`;
+  document.getElementById('reference').textContent = '';
+  document.getElementById('event-text').textContent = 'All segments finished';
+  document.getElementById('event-text-2').textContent = '';
+  infoPanel.classList.add('visible');
+}
+
+// Show city events (click mode) — shows ALL journeys that visit this city
+function showCityEvents(cityName) {
+  const events = CITY_EVENTS[cityName] || [];
+  if (events.length === 0) return;
+
+  // Deduplicate by journey
+  const journeysSeen = [...new Set(events.map(e => e.journey))];
+  const firstEvent = events[0];
+
+  document.getElementById('journey-badge').setAttribute('fill', JOURNEY_COLORS[firstEvent.journey]);
+  // Badge shows first journey; if visited by multiple journeys show count
+  document.getElementById('journey-badge-text').textContent =
+    journeysSeen.length > 1 ? `${journeysSeen.length}×` : firstEvent.journey;
+  document.getElementById('mode-icon').textContent = firstEvent.mode === 'sea' ? '⛵' : '🚶';
+
+  const visitLabel = journeysSeen.length > 1
+    ? `${journeysSeen.join(' ')} visit here`
+    : `${firstEvent.journey}`;
+  document.getElementById('segment-info').textContent = visitLabel;
+  document.getElementById('city-name').textContent = cityName;
+  document.getElementById('reference').textContent = events.map(e => e.ref).join('  ');
+
+  // Combine all unique events
+  const uniqueEvents = [...new Map(events.map(e => [e.journey + e.event, e.event])).values()];
+  const allText = uniqueEvents.join(' · ');
+  const event1 = document.getElementById('event-text');
+  const event2 = document.getElementById('event-text-2');
+  if (allText.length > 55) {
+    const words = allText.split(' ');
+    const mid = Math.ceil(words.length / 2);
+    event1.textContent = words.slice(0, mid).join(' ');
+    event2.textContent = words.slice(mid).join(' ');
+  } else {
+    event1.textContent = allText;
+    event2.textContent = '';
+  }
+
+  infoPanel.classList.add('visible');
+  resetInfoPanelTimer();
+}
+
+// Hide info panel
+function hideInfoPanel() {
+  infoPanel.classList.remove('visible');
+}
+
+// Update traveler position and mode
+function updateTraveler(path, progress, mode) {
+  const traveler = document.getElementById('traveler');
+  const length = path.getTotalLength();
+  const pt = path.getPointAtLength(length * progress);
+  const pt2 = path.getPointAtLength(Math.min(length * progress + 3, length));
+  const angle = Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * 180 / Math.PI;
+
+  traveler.style.display = 'block';
+
+  const isSeaMode = mode === 'sea';
+  const landEl = document.getElementById('traveler-land');
+  const seaEl  = document.getElementById('traveler-sea');
+
+  // Trigger pop animation on mode change
+  if (mode !== lastTravelerMode && lastTravelerMode !== null) {
+    const incoming = isSeaMode ? seaEl : landEl;
+    incoming.classList.remove('mode-pop');
+    void incoming.offsetWidth; // force reflow to restart animation
+    incoming.classList.add('mode-pop');
+  }
+  lastTravelerMode = mode;
+
+  landEl.style.display = isSeaMode ? 'none' : 'block';
+  seaEl.style.display  = isSeaMode ? 'block' : 'none';
+
+  // Both stay upright — mirror horizontally when travelling leftward
+  const flipX = (angle > 90 || angle < -90) ? -1 : 1;
+  traveler.setAttribute('transform', `translate(${pt.x},${pt.y}) scale(${flipX},1)`);
+}
+
+// Animation function
+function animate() {
+  if (!isPlaying || !currentJourney) return;
+  
+  const now = performance.now();
+  if (!startTime) startTime = now;
+  
+  const elapsed = now - startTime;
+  const path = paths[currentJourney];
+  const length = path.getTotalLength();
+  const segments = getJourneySegments(currentJourney);
+  
+  // Speed: roughly 2 seconds per segment × speed multiplier
+  const totalDuration = segments.length * 2000 / speedMultiplier;
+  const progress = Math.min(elapsed / totalDuration, 1);
+  
+  // Update path drawing
+  const offset = length * (1 - progress);
+  path.style.strokeDashoffset = offset;
+  
+  // Determine current segment from PATH POSITION (geographic), not equal time slices.
+  // segmentBoundaries[i] = path fraction where segment i ends (computed from city coords).
+  const newSegmentIndex = segmentBoundaries.length > 0
+    ? getSegmentIndexFromProgress(progress)
+    : Math.floor(progress * segments.length);
+
+  // Update traveler mode from the correct geographic segment
+  const currentSeg = segments[Math.min(newSegmentIndex, segments.length - 1)];
+  const mode = currentSeg ? currentSeg.mode : 'land';
+  updateTraveler(path, progress, mode);
+
+  if (newSegmentIndex > currentSegmentIndex && newSegmentIndex < segments.length) {
+    currentSegmentIndex = newSegmentIndex;
+    lastEffectSegFrac = 0;
+    updateInfoPanel(segments[currentSegmentIndex], currentSegmentIndex, segments.length);
+    // Trigger on-arrival event effects
+    const seg = segments[currentSegmentIndex];
+    const def = EFFECT_MAP[seg.id];
+    if (def && def.triggerAt >= 1.0) {
+      const mapping = CITY_ID_MAP[seg.to];
+      let ex, ey;
+      if (mapping && mapping.id) {
+        const cityEl = document.getElementById(mapping.id);
+        const dotEl = cityEl && cityEl.querySelector('.city-dot');
+        if (dotEl) { ex = parseFloat(dotEl.getAttribute('cx')); ey = parseFloat(dotEl.getAttribute('cy')); }
+      } else if (mapping) { ex = mapping.cx; ey = mapping.cy; }
+      if (ex !== undefined) triggerEffect(seg.id, ex, ey);
+    }
+  }
+
+  // Check mid-segment triggerAt effects (geographic fraction within current segment)
+  if (currentSegmentIndex >= 0 && currentSegmentIndex < segments.length) {
+    const curSeg = segments[currentSegmentIndex];
+    const def = EFFECT_MAP[curSeg.id];
+    if (def && def.triggerAt < 1.0) {
+      const segStart = currentSegmentIndex > 0 ? segmentBoundaries[currentSegmentIndex - 1] : 0;
+      const segEnd   = segmentBoundaries[currentSegmentIndex] || 1;
+      const segFrac  = segEnd > segStart ? (progress - segStart) / (segEnd - segStart) : 0;
+      if (lastEffectSegFrac < def.triggerAt && segFrac >= def.triggerAt) {
+        const effPt = path.getPointAtLength(length * progress);
+        triggerEffect(curSeg.id, effPt.x, effPt.y);
+      }
+      lastEffectSegFrac = segFrac;
+    }
+  }
+  
+  // Update timeline bar
+  updateTimeline(progress);
+
+  if (progress >= 1) {
+    // Journey complete
+    stopAnimation();
+    showCompletion(currentJourney);
+  } else {
+    animationId = requestAnimationFrame(animate);
+  }
+}
+
+// ─── TIMELINE BAR ───────────────────────────────────────────────
+const TIMELINE_X = 10, TIMELINE_W = 780;
+const JOURNEY_COLORS_MAP = {J1:'#f1c40f', J2:'#e67e22', J3:'#9b59b6', J4:'#e74c3c'};
+
+function updateTimeline(progress) {
+  const color = JOURNEY_COLORS_MAP[currentJourney] || '#f1c40f';
+  const px = TIMELINE_X + TIMELINE_W * progress;
+  const segments = currentJourney ? getJourneySegments(currentJourney) : [];
+  const segIdx = Math.max(0, Math.min(currentSegmentIndex, segments.length - 1));
+
+  // Traveled fill (dimmer — everything up to scrubber)
+  const fill = document.getElementById('timeline-fill');
+  fill.setAttribute('fill', color);
+  fill.setAttribute('width', TIMELINE_W * progress);
+
+  // Current segment highlight (bright — from segment start to scrubber)
+  const band = document.getElementById('timeline-segment-band');
+  band.setAttribute('fill', color);
+  const segStartFrac = (segIdx > 0 && segmentBoundaries.length > 0)
+    ? (segmentBoundaries[segIdx - 1] || 0) : 0;
+  const segStartX = TIMELINE_X + TIMELINE_W * segStartFrac;
+  band.setAttribute('x', segStartX);
+  band.setAttribute('width', Math.max(0, px - segStartX));
+
+  // Scrubber
+  document.getElementById('timeline-scrubber').setAttribute('cx', px);
+
+  // FROM label — left of segment band, shows city we departed
+  const fromLabel = document.getElementById('timeline-from-label');
+  if (segments.length > 0) {
+    const fromCity = segments[segIdx] ? segments[segIdx].from : '';
+    // Abbreviate to 8 chars max
+    fromLabel.textContent = fromCity.length > 9 ? fromCity.slice(0, 8) + '…' : fromCity;
+    fromLabel.setAttribute('x', segStartX + 2);
+  }
+
+  // TO label — above scrubber, shows destination city
+  const toLabel = document.getElementById('timeline-to-label');
+  if (segments.length > 0) {
+    const toCity = segments[segIdx] ? segments[segIdx].to : '';
+    toLabel.textContent = toCity.length > 9 ? toCity.slice(0, 8) + '…' : toCity;
+    // Keep label on screen
+    const labelX = Math.max(30, Math.min(px, TIMELINE_X + TIMELINE_W - 20));
+    toLabel.setAttribute('x', labelX);
+  }
+}
+
+function renderTimelineTicks(journey, boundaries) {
+  const container = document.getElementById('timeline-ticks');
+  container.innerHTML = '';
+  const color = JOURNEY_COLORS_MAP[journey] || '#fff';
+  document.getElementById('timeline-fill').setAttribute('fill', color);
+  document.getElementById('timeline-segment-band').setAttribute('fill', color);
+  const ns = 'http://www.w3.org/2000/svg';
+  // Draw city dots at each segment boundary (excluding the very last = 1.0)
+  boundaries.slice(0, -1).forEach(frac => {
+    const cx = TIMELINE_X + TIMELINE_W * frac;
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', cx);
+    dot.setAttribute('cy', '490');
+    dot.setAttribute('r', '2.5');
+    dot.setAttribute('fill', 'rgba(255,255,255,0.7)');
+    dot.setAttribute('stroke', 'rgba(0,0,0,0.4)');
+    dot.setAttribute('stroke-width', '0.8');
+    container.appendChild(dot);
+  });
+}
+
+// Scrub timeline on tap/drag
+(function() {
+  const svg = document.querySelector('svg');
+  const bar = document.getElementById('timeline-bar');
+  let scrubbing = false;
+
+  function scrubTo(clientX) {
+    if (!currentJourney) return;
+    const rect = svg.getBoundingClientRect();
+    const svgW = 800; // viewBox width
+    const scale = rect.width / svgW;
+    const localX = (clientX - rect.left) / scale;
+    const progress = Math.max(0, Math.min(1, (localX - TIMELINE_X) / TIMELINE_W));
+
+    // Pause and jump
+    if (isPlaying) { stopAnimation(); }
+    const segments = getJourneySegments(currentJourney);
+    const totalDuration = segments.length * 2000 / speedMultiplier;
+    startTime = performance.now() - progress * totalDuration;
+    const path = paths[currentJourney];
+    const length = path.getTotalLength();
+    path.style.strokeDashoffset = length * (1 - progress);
+    updateTimeline(progress);
+    // Update info panel — use geographic boundaries if available
+    const idx = segmentBoundaries.length > 0
+      ? getSegmentIndexFromProgress(progress)
+      : Math.min(Math.floor(progress * segments.length), segments.length - 1);
+    currentSegmentIndex = idx;
+    updateInfoPanel(segments[idx], idx, segments.length);
+    // Resume
+    isPlaying = true;
+    playPauseText.textContent = '⏸';
+    animationId = requestAnimationFrame(animate);
+  }
+
+  bar.addEventListener('mousedown', e => { scrubbing = true; scrubTo(e.clientX); });
+  bar.addEventListener('touchstart', e => { scrubbing = true; scrubTo(e.touches[0].clientX); }, {passive:true});
+  window.addEventListener('mousemove', e => { if (scrubbing) scrubTo(e.clientX); });
+  window.addEventListener('touchmove', e => { if (scrubbing) scrubTo(e.touches[0].clientX); }, {passive:true});
+  window.addEventListener('mouseup', () => scrubbing = false);
+  window.addEventListener('touchend', () => scrubbing = false);
+})();
+// ────────────────────────────────────────────────────────────────
+
+// Start animation for a journey
+let segmentBoundaries = []; // fractions of path length where each segment ends
+
+function computeSegmentBoundaries(pathEl, segments) {
+  // Use straight-line SVG distance between city coords to allocate path fractions.
+  // This is immune to round-trip false matches and routes that cross the same
+  // coordinate twice (e.g. J2's Corinth→Ephesus sea route passing near Athens).
+
+  function getCityCoords(cityName) {
+    const mapping = CITY_ID_MAP[cityName];
+    if (mapping && mapping.id) {
+      const el = document.getElementById(mapping.id);
+      const dot = el && el.querySelector('.city-dot');
+      if (dot) return { x: parseFloat(dot.getAttribute('cx')), y: parseFloat(dot.getAttribute('cy')) };
+    }
+    if (mapping && mapping.cx !== undefined) return { x: mapping.cx, y: mapping.cy };
+    // Last resort: CITY_COORDS table
+    const cc = CITY_COORDS[cityName];
+    if (cc) return { x: cc.cx, y: cc.cy };
+    return null;
+  }
+
+  // Distance for each segment (straight-line between from→to SVG coords)
+  const distances = segments.map(seg => {
+    const from = getCityCoords(seg.from);
+    const to   = getCityCoords(seg.to);
+    if (from && to) return Math.hypot(to.x - from.x, to.y - from.y);
+    return 1; // fallback: equal weight
+  });
+
+  const totalDist = distances.reduce((a, b) => a + b, 0);
+  let cumulative = 0;
+  const boundaries = distances.map(d => {
+    cumulative += d;
+    return cumulative / totalDist;
+  });
+  boundaries[boundaries.length - 1] = 1.0;
+  return boundaries;
+}
+
+function getSegmentIndexFromProgress(progress) {
+  for (let i = 0; i < segmentBoundaries.length; i++) {
+    if (progress < segmentBoundaries[i]) return i;
+  }
+  return segmentBoundaries.length - 1;
+}
+
+function startJourney(journey) {
+  stopAnimation();
+  currentJourney = journey;
+  currentSegmentIndex = -1;
+  startTime = null;
+
+  // Reset all paths
+  Object.keys(paths).forEach(j => {
+    const path = paths[j];
+    const length = path.getTotalLength();
+    path.style.strokeDashoffset = length;
+  });
+
+  // Compute where each city actually sits on this journey's path
+  const segments = getJourneySegments(journey);
+  segmentBoundaries = computeSegmentBoundaries(paths[journey], segments);
+
+  // Draw tick marks on timeline
+  renderTimelineTicks(journey, segmentBoundaries);
+
+  isPlaying = true;
+  playPauseText.textContent = '⏸';
+
+  if (segments.length > 0) {
+    currentSegmentIndex = 0;
+    updateInfoPanel(segments[0], 0, segments.length);
+  }
+
+  animationId = requestAnimationFrame(animate);
+}
+
+// Stop animation
+function stopAnimation() {
+  isPlaying = false;
+  playPauseText.textContent = '▶';
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  document.getElementById('traveler').style.display = 'none';
+  updateTimeline(0);
+}
+
+// Toggle play/pause
+function togglePlayPause() {
+  if (isPlaying) {
+    stopAnimation();
+  } else if (currentJourney) {
+    isPlaying = true;
+    playPauseText.textContent = '⏸';
+    animationId = requestAnimationFrame(animate);
+  } else {
+    // Start J1 by default
+    startJourney('J1');
+  }
+}
+
+// ── L8: Event effects ──
+// triggerAt: fraction within segment (0=start/departure, 0.5=mid, 1.0=arrival default)
+const EFFECT_MAP = {
+  'j1-3': { type:'blind_flash',  triggerAt:1.0 },  // Elymas blind — arrives Paphos
+  'j1-8': { type:'stoning',      triggerAt:0.05 }, // Paul stoned — at Lystra (just departed)
+  'j2-4': { type:'first_church', triggerAt:1.0 },  // First church Europe — Philippi
+  'j2-8': { type:'mars_hill',    triggerAt:1.0 },  // Mars Hill — Athens
+  'j3-2': { type:'artemis_riot', triggerAt:0.7 },  // Artemis riot — Ephesus, during stay
+  'j4-3': { type:'shipwreck',    triggerAt:0.45 }  // Euroclydon — mid-sea between Crete and Malta
+};
+
+let lastEffectSegFrac = 0; // track fractional position within current segment
+
+function shakeEffect(durationMs) {
+  const t = document.getElementById('traveler');
+  if (!t) return;
+  t.style.animation = `traveler-shake 0.25s ease-in-out infinite`;
+  setTimeout(() => { t.style.animation = ''; }, durationMs);
+}
+
+// ── Event Scene Panel (right side large illustration) ──
+let eventPanelTimer = null;
+const EP_TITLES = {
+  blind_flash:  'DIVINE JUDGMENT',
+  stoning:      'STONING AT LYSTRA',
+  first_church: 'FIRST CHURCH IN EUROPE',
+  mars_hill:    'AREOPAGUS ADDRESS',
+  artemis_riot: 'RIOT AT EPHESUS',
+  shipwreck:    'THE GREAT SHIPWRECK'
+};
+const EP_CAPTIONS = {
+  blind_flash:  ['Elymas the sorcerer struck blind · divine power on display', '"Immediately mist and darkness fell on him" — Acts 13:11'],
+  stoning:      ['Left for dead outside the city gates of Lystra', 'He rose and walked back in — and left the next day'],
+  first_church: ['Lydia: a dealer in purple cloth, heart opened by God', 'The Philippian jailer and his whole household baptized'],
+  mars_hill:    ['"The God who made the world does not live in temples"', 'Dionysius and Damaris among those who believed'],
+  artemis_riot: ['Demetrius the silversmith stirs the craftsmen to riot', 'The whole city in uproar — 2 hours of chanting'],
+  shipwreck:    ['Euroclydon — a violent northeaster · 14 days adrift', 'Every one of 276 souls reached shore safely · Acts 27:44']
+};
+
+function showEventScene(eventType, journeyColor) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const panel = document.getElementById('event-scene');
+  // Style
+  document.getElementById('ep-border').setAttribute('stroke', journeyColor);
+  document.getElementById('ep-dot').setAttribute('fill', journeyColor);
+  const titleEl = document.getElementById('ep-title');
+  titleEl.textContent = EP_TITLES[eventType] || 'EVENT';
+  titleEl.setAttribute('fill', journeyColor);
+  const cap = EP_CAPTIONS[eventType] || ['',''];
+  document.getElementById('ep-cap1').textContent = cap[0];
+  document.getElementById('ep-cap2').textContent = cap[1];
+  // Illustration
+  const illo = document.getElementById('ep-illo');
+  illo.innerHTML = '';
+  renderEventIllo(ns, illo, eventType, journeyColor);
+  // Animate in
+  panel.style.display = 'block';
+  panel.classList.remove('ep-out','ep-in');
+  void panel.getBBox(); // force reflow
+  panel.classList.add('ep-in');
+  // Auto-hide after 8s
+  clearTimeout(eventPanelTimer);
+  eventPanelTimer = setTimeout(() => {
+    panel.classList.remove('ep-in');
+    panel.classList.add('ep-out');
+    setTimeout(() => { panel.style.display='none'; panel.classList.remove('ep-out'); }, 400);
+  }, 8000);
+}
+
+function renderEventIllo(ns, g, type, color) {
+  // Illustration area: x=527-787 (260w), y=56-195 (139h)
+  const X=527, Y=56, W=260, H=139, CX=657, CY=125;
+  const mk = t => document.createElementNS(ns, t);
+  const set = (el, a) => { Object.entries(a).forEach(([k,v])=>el.setAttribute(k,v)); return el; };
+  const add = el => g.appendChild(el);
+
+  if (type === 'blind_flash') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#1a3060'}));
+    add(set(mk('rect'),{x:X,y:Y+H*0.5,width:W,height:H*0.5,fill:'#7a4a18'}));
+    for(let i=0;i<4;i++){
+      add(set(mk('rect'),{x:X+20+i*22,y:Y+55,width:6,height:35,fill:'rgba(200,160,100,0.5)'}));
+    }
+    add(set(mk('rect'),{x:X+15,y:Y+55,width:100,height:4,fill:'rgba(200,160,100,0.5)'}));
+    const beam = mk('polygon');
+    beam.setAttribute('points',`${X+15},${CY-5} ${X+15},${CY+5} ${CX+20},${CY+35} ${CX+20},${CY-35}`);
+    beam.setAttribute('fill','rgba(255,255,200,0.35)');
+    add(beam);
+    add(set(mk('circle'),{cx:X+15,cy:CY,r:'12',fill:'rgba(255,255,200,0.7)'}));
+    add(set(mk('circle'),{cx:X+15,cy:CY,r:'6',fill:'#ffffaa'}));
+    const ex=CX+10, ey=CY+10;
+    add(set(mk('circle'),{cx:ex,cy:ey-28,r:'7',fill:'#8060a0'}));
+    add(set(mk('polygon'),{points:`${ex-8},${ey-22} ${ex-14},${ey+10} ${ex+14},${ey+10} ${ex+8},${ey-22}`,fill:'#6040a0'}));
+    add(set(mk('line'),{x1:ex,y1:ey-15,x2:ex-22,y2:ey-8,stroke:'#8060a0','stroke-width':'3','stroke-linecap':'round'}));
+    add(set(mk('line'),{x1:ex,y1:ey-15,x2:ex+22,y2:ey,stroke:'#8060a0','stroke-width':'3','stroke-linecap':'round'}));
+    const dark=mk('circle');
+    dark.setAttribute('cx',ex); dark.setAttribute('cy',ey-28); dark.setAttribute('r','7');
+    dark.setAttribute('fill','rgba(10,0,20,0.7)');
+    dark.style.animation='dark-spread 2s ease-out infinite';
+    add(dark);
+    add(set(mk('circle'),{cx:X+50,cy:CY-18,r:'5',fill:'#f0c890'}));
+    add(set(mk('polygon'),{points:`${X+45},${CY-14} ${X+40},${CY+10} ${X+60},${CY+10} ${X+55},${CY-14}`,fill:'#c8a060'}));
+    add(set(mk('line'),{x1:X+52,y1:CY-12,x2:ex-15,y2:CY-5,stroke:'#c8a060','stroke-width':'2.5','stroke-linecap':'round'}));
+  }
+
+  else if (type === 'stoning') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#d4b88a'}));
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H*0.55,fill:'#8fb8d8'}));
+    const wall=mk('rect'); wall.setAttribute('x',X+140); wall.setAttribute('y',Y+30);
+    wall.setAttribute('width',120); wall.setAttribute('height',70); wall.setAttribute('fill','#b09060');
+    add(wall);
+    for(let i=0;i<6;i++) add(set(mk('rect'),{x:X+140+i*20,y:Y+20,width:12,height:15,fill:'#b09060'}));
+    add(set(mk('path'),{d:`M${X+180},${Y+100} Q${X+195},${Y+80} ${X+210},${Y+100}`,fill:'rgba(80,60,30,0.5)',stroke:'#80603a','stroke-width':'1'}));
+    add(set(mk('rect'),{x:X,y:Y+H-30,width:W,height:30,fill:'#a07840'}));
+    add(set(mk('rect'),{x:X,y:Y+H-8,width:W,height:8,fill:'#806030'}));
+    for(let i=0;i<5;i++) add(set(mk('circle'),{cx:CX-20+i*12,cy:Y+H-35,r:`${3+i%3}`,fill:'rgba(180,140,80,0.4)'}));
+    const py=Y+H-22;
+    add(set(mk('circle'),{cx:CX-60,cy:py-4,r:'6',fill:'#f0c890'}));
+    add(set(mk('polygon'),{points:`${CX-55},${py-2} ${CX-55},${py+8} ${CX+30},${py+8} ${CX+30},${py-2}`,fill:'#c8a060'}));
+    add(set(mk('line'),{x1:CX+28,y1:py+3,x2:CX+42,y2:py-8,stroke:'#c8a060','stroke-width':'3','stroke-linecap':'round'}));
+    [[CX+60,Y+H-30,'#7a5020'],[CX+80,Y+H-35,'#5a4020'],[CX+100,Y+H-28,'#8a6030']].forEach(([fx,fy,fc])=>{
+      add(set(mk('circle'),{cx:fx,cy:fy-16,r:'5',fill:'#c8a870'}));
+      add(set(mk('polygon'),{points:`${fx-6},${fy-12} ${fx-8},${fy+2} ${fx+8},${fy+2} ${fx+6},${fy-12}`,fill:fc}));
+      add(set(mk('line'),{x1:fx,y1:fy-8,x2:fx-10,y2:fy-22,stroke:fc,'stroke-width':'2.5','stroke-linecap':'round'}));
+    });
+    const rockPositions=[[CX-20,Y+H-38],[CX,Y+H-50],[CX-35,Y+H-52],[CX+10,Y+H-60],[CX-15,Y+H-65]];
+    rockPositions.forEach(([rx,ry],i)=>{
+      const rock=mk('polygon');
+      const pts=[[0,-4],[3,-5],[5,-2],[4,2],[1,4],[-3,3],[-4,-1]];
+      rock.setAttribute('points',pts.map(([px,py2])=>`${rx+px},${ry+py2}`).join(' '));
+      rock.setAttribute('fill',`hsl(${20+i*10},${20+i*8}%,${40+i*5}%)`);
+      rock.setAttribute('stroke','#555'); rock.setAttribute('stroke-width','0.5');
+      add(rock);
+    });
+  }
+
+  else if (type === 'first_church') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#4a8050'}));
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H*0.5,fill:'#5090d0'}));
+    add(set(mk('rect'),{x:X,y:Y+H*0.62,width:W,height:H*0.38,fill:'#2060a0'}));
+    for(let i=0;i<4;i++){
+      const rw=mk('path');
+      rw.setAttribute('d',`M${X+10+i*55},${Y+H*0.72} Q${X+30+i*55},${Y+H*0.69} ${X+50+i*55},${Y+H*0.72}`);
+      rw.setAttribute('fill','none'); rw.setAttribute('stroke','rgba(255,255,255,0.3)'); rw.setAttribute('stroke-width','1.5');
+      add(rw);
+    }
+    const bank=mk('path');
+    bank.setAttribute('d',`M${X},${Y+H*0.62} Q${X+W*0.3},${Y+H*0.5} ${X+W*0.5},${Y+H*0.55} Q${X+W*0.7},${Y+H*0.6} ${X+W},${Y+H*0.58} L${X+W},${Y} L${X},${Y} Z`);
+    bank.setAttribute('fill','#3a7040'); add(bank);
+    [[X+25,Y+70],[X+45,Y+80],[X+15,Y+85]].forEach(([tx,ty])=>{
+      add(set(mk('polygon'),{points:`${tx},${ty-20} ${tx-10},${ty+5} ${tx+10},${ty+5}`,fill:'#2a6030'}));
+      add(set(mk('rect'),{x:tx-2,y:ty+5,width:4,height:10,fill:'#7a4a10'}));
+    });
+    const cx2=X+W-60, cy2=Y+H*0.52;
+    add(set(mk('rect'),{x:cx2-18,y:cy2-20,width:36,height:30,fill:'#d4c4a0','stroke':'#8a7050','stroke-width':'1'}));
+    add(set(mk('polygon'),{points:`${cx2-22},${cy2-20} ${cx2},${cy2-40} ${cx2+22},${cy2-20}`,fill:'#c04030','stroke':'#802010','stroke-width':'1'}));
+    add(set(mk('line'),{x1:cx2,y1:cy2-38,x2:cx2,y2:cy2-24,stroke:'#f1c40f','stroke-width':'2.5'}));
+    add(set(mk('line'),{x1:cx2-6,y1:cy2-32,x2:cx2+6,y2:cy2-32,stroke:'#f1c40f','stroke-width':'2.5'}));
+    for(let i=0;i<8;i++){
+      const a=(i/8)*Math.PI*2, r1=22, r2=38;
+      const ray=mk('line');
+      ray.setAttribute('x1',cx2+Math.cos(a)*r1); ray.setAttribute('y1',(cy2-22)+Math.sin(a)*r1);
+      ray.setAttribute('x2',cx2+Math.cos(a)*r2); ray.setAttribute('y2',(cy2-22)+Math.sin(a)*r2);
+      ray.setAttribute('stroke','#f1c40f'); ray.setAttribute('stroke-width','1.2'); ray.setAttribute('opacity','0.7');
+      add(ray);
+    }
+    add(set(mk('circle'),{cx:CX-30,cy:Y+H*0.64-12,r:'5.5',fill:'#f0c890'}));
+    add(set(mk('polygon'),{points:`${CX-36},${Y+H*0.64-8} ${CX-38},${Y+H*0.64+8} ${CX-22},${Y+H*0.64+8} ${CX-24},${Y+H*0.64-8}`,fill:'#8030a0'}));
+    add(set(mk('circle'),{cx:CX-65,cy:Y+H*0.64-20,r:'5',fill:'#f0c890'}));
+    add(set(mk('polygon'),{points:`${CX-70},${Y+H*0.64-16} ${CX-74},${Y+H*0.64+4} ${CX-56},${Y+H*0.64+4} ${CX-60},${Y+H*0.64-16}`,fill:'#c8a060'}));
+    add(set(mk('line'),{x1:CX-65,y1:Y+H*0.64-12,x2:CX-50,y2:Y+H*0.64-22,stroke:'#c8a060','stroke-width':'2.5','stroke-linecap':'round'}));
+    const dove=mk('path');
+    dove.setAttribute('d',`M${CX-10},${Y+50} C${CX-6},${Y+44} ${CX+6},${Y+43} ${CX+8},${Y+47} C${CX+10},${Y+51} ${CX+6},${Y+53} ${CX},${Y+50} C${CX-4},${Y+48} ${CX-7},${Y+50} ${CX-10},${Y+50}Z`);
+    dove.setAttribute('fill','#fff'); dove.setAttribute('opacity','0.9');
+    dove.style.animation='dove-fly 2.5s ease-in-out infinite';
+    add(dove);
+  }
+
+  else if (type === 'mars_hill') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#c87820'}));
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H*0.55,fill:'#e89030',opacity:'0.7'}));
+    for(let i=0;i<5;i++) add(set(mk('rect'),{x:X+W-80+i*13,y:Y+52,width:4,height:28,fill:'rgba(200,160,80,0.55)'}));
+    add(set(mk('rect'),{x:X+W-85,y:Y+50,width:68,height:5,fill:'rgba(200,160,80,0.55)'}));
+    const hill=mk('path');
+    hill.setAttribute('d',`M${X},${Y+H} Q${CX-80},${Y+H-55} ${CX-20},${Y+H-55} Q${CX+30},${Y+H-65} ${CX+60},${Y+H-50} Q${X+W-20},${Y+H-40} ${X+W},${Y+H} Z`);
+    hill.setAttribute('fill','#8a6040'); add(hill);
+    add(set(mk('rect'),{x:X,y:Y+H-20,width:W,height:20,fill:'#6a4820'}));
+    const px=CX-15, phY=Y+H-75;
+    add(set(mk('circle'),{cx:px,cy:phY-10,r:'6',fill:'#f0c890'}));
+    add(set(mk('polygon'),{points:`${px-8},${phY-6} ${px-10},${phY+14} ${px+10},${phY+14} ${px+8},${phY-6}`,fill:'#a08040'}));
+    add(set(mk('line'),{x1:px,y1:phY-2,x2:px+16,y2:phY-18,stroke:'#a08040','stroke-width':'3','stroke-linecap':'round'}));
+    add(set(mk('line'),{x1:px+8,y1:phY+14,x2:px+10,y2:phY-4,stroke:'#7a4a10','stroke-width':'1.5','stroke-linecap':'round'}));
+    for(let i=0;i<3;i++){
+      const arc=mk('circle');
+      arc.setAttribute('cx',px+8); arc.setAttribute('cy',phY-5);
+      arc.setAttribute('r',String(10+i*14)); arc.setAttribute('fill','none');
+      arc.setAttribute('stroke','#f1c40f'); arc.setAttribute('stroke-width','1');
+      arc.setAttribute('opacity',String(0.55-i*0.12));
+      arc.style.animation=`speech-ring ${0.9+i*0.35}s ease-out ${i*0.28}s infinite`;
+      add(arc);
+    }
+    for(let i=0;i<11;i++){
+      const a=(i/10)*Math.PI+Math.PI*0.1;
+      const r=45, cdx=CX-10+Math.cos(a)*r*1.5, cdy=Y+H-18+Math.sin(a)*r*0.35;
+      add(set(mk('circle'),{cx:cdx,cy:cdy,r:'3',fill:i%2===0?'#d4b87a':'#a08040'}));
+    }
+    add(set(mk('rect'),{x:CX+50,y:phY,width:20,height:14,fill:'#b09070'}));
+    const altarText=mk('text');
+    altarText.setAttribute('x',String(CX+60)); altarText.setAttribute('y',String(phY+10));
+    altarText.setAttribute('text-anchor','middle'); altarText.setAttribute('font-size','5');
+    altarText.setAttribute('fill','#e8d5a3'); altarText.setAttribute('font-family','sans-serif');
+    altarText.textContent='UNKNOWN GOD'; add(altarText);
+  }
+
+  else if (type === 'artemis_riot') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#2a1808'}));
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'rgba(200,80,20,0.25)'}));
+    const tx=CX-50, ty=Y+20;
+    add(set(mk('rect'),{x:tx-5,y:ty+35,width:110,height:50,fill:'#c8b890'}));
+    add(set(mk('polygon'),{points:`${tx-10},${ty+35} ${tx+50},${ty+8} ${tx+110},${ty+35}`,fill:'#d4c4a0'}));
+    for(let i=0;i<7;i++) add(set(mk('rect'),{x:tx+i*16,y:ty+10,width:6,height:28,fill:'#b8a880'}));
+    add(set(mk('rect'),{x:tx-12,y:ty+85,width:124,height:6,fill:'#a09070'}));
+    add(set(mk('rect'),{x:tx-16,y:ty+91,width:132,height:5,fill:'#908060'}));
+    const fireColors=['#e74c3c','#e67e22','#f1c40f'];
+    for(let i=0;i<8;i++){
+      const flame=mk('polygon');
+      const fx2=tx-8+i*15, fy2=ty+90;
+      flame.setAttribute('points',`${fx2},${fy2} ${fx2-4},${fy2-(8+i%3*5)} ${fx2+4},${fy2-(8+(i+1)%3*4)}`);
+      flame.setAttribute('fill',fireColors[i%3]); flame.setAttribute('opacity','0.9');
+      flame.style.animation=`flame-flicker ${0.25+i*0.06}s ease-in-out ${i*0.04}s infinite`;
+      add(flame);
+    }
+    for(let i=0;i<18;i++){
+      const crowdX=X+10+Math.floor(i%9)*28, crowdY=Y+H-15-(i>8?18:0);
+      add(set(mk('circle'),{cx:crowdX,cy:crowdY-8,r:'3',fill:'#c8a870'}));
+      add(set(mk('line'),{x1:crowdX,y1:crowdY-5,x2:crowdX+(i%2?4:-4),y2:crowdY-16,stroke:'#a08040','stroke-width':'1.5','stroke-linecap':'round'}));
+    }
+    const shout=mk('text');
+    shout.setAttribute('x',String(CX)); shout.setAttribute('y',String(Y+18));
+    shout.setAttribute('text-anchor','middle'); shout.setAttribute('font-size','9.5');
+    shout.setAttribute('fill','#f1c40f'); shout.setAttribute('font-weight','bold');
+    shout.setAttribute('font-family','sans-serif'); shout.setAttribute('opacity','0.9');
+    shout.textContent='GREAT IS ARTEMIS!'; add(shout);
+  }
+
+  else if (type === 'shipwreck') {
+    add(set(mk('rect'),{x:X,y:Y,width:W,height:H,fill:'#0a1828'}));
+    add(set(mk('ellipse'),{cx:CX-30,cy:Y+15,rx:'55',ry:'20',fill:'rgba(40,50,80,0.9)'}));
+    add(set(mk('ellipse'),{cx:CX+50,cy:Y+22,rx:'45',ry:'18',fill:'rgba(30,40,70,0.85)'}));
+    for(let i=0;i<5;i++){
+      const wave=mk('path');
+      const wy=Y+H-45+i*12;
+      wave.setAttribute('d',`M${X},${wy} Q${X+W*0.15},${wy-10} ${X+W*0.3},${wy} Q${X+W*0.45},${wy+10} ${X+W*0.6},${wy} Q${X+W*0.75},${wy-8} ${X+W},${wy}`);
+      wave.setAttribute('fill','none');
+      wave.setAttribute('stroke',`rgba(60,120,200,${0.5+i*0.1})`);
+      wave.setAttribute('stroke-width','2.5');
+      wave.style.animation=`funnel-sway ${0.4+i*0.1}s ease-in-out ${i*0.1}s infinite`;
+      add(wave);
+    }
+    const hull1=mk('path');
+    hull1.setAttribute('d',`M${CX-80},${Y+H-60} Q${CX-55},${Y+H-45} ${CX-20},${Y+H-55} L${CX-20},${Y+H-75} L${CX-80},${Y+H-70} Z`);
+    hull1.setAttribute('fill','#8a6030'); hull1.setAttribute('stroke','#5a4020'); hull1.setAttribute('stroke-width','1.5');
+    add(hull1);
+    const hull2=mk('path');
+    hull2.setAttribute('d',`M${CX+10},${Y+H-68} Q${CX+45},${Y+H-50} ${CX+80},${Y+H-62} L${CX+78},${Y+H-80} L${CX+10},${Y+H-85} Z`);
+    hull2.setAttribute('fill','#8a6030'); hull2.setAttribute('stroke','#5a4020'); hull2.setAttribute('stroke-width','1.5');
+    hull2.setAttribute('transform',`rotate(12,${CX+45},${Y+H-65})`);
+    add(hull2);
+    add(set(mk('line'),{x1:CX-40,y1:Y+H-75,x2:CX-30,y2:Y+H-115,stroke:'#7a5020','stroke-width':'3','stroke-linecap':'round'}));
+    add(set(mk('line'),{x1:CX-30,y1:Y+H-115,x2:CX+10,y2:Y+H-98,stroke:'#7a5020','stroke-width':'2','stroke-linecap':'round'}));
+    const sail=mk('polygon');
+    sail.setAttribute('points',`${CX-30},${Y+H-115} ${CX-50},${Y+H-90} ${CX+5},${Y+H-100}`);
+    sail.setAttribute('fill','rgba(220,200,160,0.7)'); add(sail);
+    [[CX-110,Y+H-52],[CX-90,Y+H-44],[CX+95,Y+H-50],[CX+110,Y+H-42]].forEach(([px,py2])=>{
+      add(set(mk('circle'),{cx:px,cy:py2-6,r:'4',fill:'#f0c890'}));
+      add(set(mk('line'),{x1:px-6,y1:py2,x2:px+6,y2:py2-3,stroke:'#c8a060','stroke-width':'2.5','stroke-linecap':'round'}));
+    });
+    const bolt=mk('polyline');
+    bolt.setAttribute('points',`${CX+30},${Y+10} ${CX+22},${Y+30} ${CX+34},${Y+35} ${CX+20},${Y+58}`);
+    bolt.setAttribute('fill','none'); bolt.setAttribute('stroke','#f1c40f');
+    bolt.setAttribute('stroke-width','2.5'); bolt.setAttribute('stroke-linecap','round');
+    bolt.style.animation='beam-fade 0.35s ease-in-out 0.3s 8 alternate';
+    add(bolt);
+    const shore=mk('path');
+    shore.setAttribute('d',`M${X+W-30},${Y+H} Q${X+W-20},${Y+H-30} ${X+W},${Y+H-35} L${X+W},${Y+H} Z`);
+    shore.setAttribute('fill','#8a7050'); add(shore);
+  }
+}
+
+function triggerEffect(segId, cx, cy) {
+  const def = EFFECT_MAP[segId];
+  if (!def) return;
+  const layer = document.getElementById('layer-effects');
+  layer.innerHTML = '';
+  // Physical shake for stoning and shipwreck
+  if (def.type === 'stoning' || def.type === 'shipwreck') {
+    shakeEffect(def.type === 'shipwreck' ? 3000 : 1200);
+  }
+  // Show large event scene panel on right side
+  const journeyColor = currentJourney ? JOURNEY_COLORS[currentJourney] : '#f1c40f';
+  showEventScene(def.type, journeyColor);
+}
+
+// ---- DEAD CODE TOMBSTONE — at-city map effects removed (now handled by right-side panel) ----
+function _unused_triggerEffectBody(segId, cx, cy) {
+  const def = EFFECT_MAP[segId];
+  if (!def) return;
+  const layer = document.getElementById('layer-effects');
+  layer.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  if (def.type === 'blind_flash') {
+    // Bright white beam aimed outward, then darkness expands from target
+    // Light ray from Paul (approx 10 units left of cx,cy) to target
+    const ray = document.createElementNS(ns, 'line');
+    ray.setAttribute('x1', cx-12); ray.setAttribute('y1', cy);
+    ray.setAttribute('x2', cx+12); ray.setAttribute('y2', cy);
+    ray.setAttribute('stroke', '#ffffff'); ray.setAttribute('stroke-width', '5');
+    ray.setAttribute('stroke-linecap', 'round');
+    ray.style.filter = 'drop-shadow(0 0 6px #fff)';
+    ray.style.animation = 'beam-fade 0.5s ease-out forwards';
+    layer.appendChild(ray);
+    // Blinding white flash at target
+    const flash = document.createElementNS(ns, 'circle');
+    flash.setAttribute('cx', cx+8); flash.setAttribute('cy', cy);
+    flash.setAttribute('r', '3'); flash.setAttribute('fill', '#ffffff');
+    flash.style.animation = 'dark-spread 0.8s ease-out 0.2s forwards';
+    layer.appendChild(flash);
+    // Darkness cloud expanding
+    setTimeout(() => {
+      layer.innerHTML = '';
+      const dark = document.createElementNS(ns, 'circle');
+      dark.setAttribute('cx', cx+8); dark.setAttribute('cy', cy);
+      dark.setAttribute('r', '3'); dark.setAttribute('fill', 'rgba(20,10,40,0.85)');
+      dark.style.animation = 'dark-spread 1.4s ease-out forwards';
+      layer.appendChild(dark);
+      // Groping hand hint: two short curved lines reaching out from dark centre
+      const hand1 = document.createElementNS(ns, 'path');
+      hand1.setAttribute('d', `M${cx+8},${cy} Q${cx+20},${cy-3} ${cx+28},${cy+4}`);
+      hand1.setAttribute('fill', 'none'); hand1.setAttribute('stroke', '#8060a0');
+      hand1.setAttribute('stroke-width', '2'); hand1.setAttribute('stroke-linecap', 'round');
+      hand1.style.animation = 'beam-fade 1.8s ease-out 0.3s forwards';
+      layer.appendChild(hand1);
+    }, 800);
+  }
+
+  else if (def.type === 'stoning') {
+    // 6 irregular rocks (polygons) animate FROM surrounding positions INWARD to cx,cy
+    shakeEffect(1200);
+    const rockAngles = [0, 55, 110, 180, 230, 310];
+    const startR = 28;
+    rockAngles.forEach((angleDeg, i) => {
+      const rad = angleDeg * Math.PI / 180;
+      const sx = cx + Math.cos(rad) * startR;
+      const sy = cy + Math.sin(rad) * startR;
+      const rock = document.createElementNS(ns, 'polygon');
+      // Irregular polygon shape offset around (0,0), will be translated to start pos
+      const pts = [[0,-3],[2,-4],[4,-2],[3,1],[1,3],[-2,2],[-3,-1]];
+      rock.setAttribute('points', pts.map(p=>`${sx+p[0]},${sy+p[1]}`).join(' '));
+      rock.setAttribute('fill', `hsl(${20+i*8},${15+i*5}%,${45+i*5}%)`);
+      rock.setAttribute('stroke', '#555'); rock.setAttribute('stroke-width', '0.5');
+      // Animate: move from (sx,sy) to (cx,cy)
+      const dx = cx - sx, dy = cy - sy;
+      const animX = document.createElementNS(ns, 'animateTransform');
+      animX.setAttribute('attributeName', 'transform');
+      animX.setAttribute('type', 'translate');
+      animX.setAttribute('from', '0 0');
+      animX.setAttribute('to', `${dx} ${dy}`);
+      animX.setAttribute('dur', `${0.3 + i*0.06}s`);
+      animX.setAttribute('begin', `${i*0.08}s`);
+      animX.setAttribute('fill', 'freeze');
+      rock.appendChild(animX);
+      rock.style.animation = `rock-fly ${0.4+i*0.06}s ease-in ${i*0.08}s forwards`;
+      layer.appendChild(rock);
+    });
+    // After rocks: "fallen" figure — horizontal line — then it rises back
+    setTimeout(() => {
+      layer.innerHTML = '';
+      const fallen = document.createElementNS(ns, 'line');
+      fallen.setAttribute('x1', cx-8); fallen.setAttribute('y1', cy+2);
+      fallen.setAttribute('x2', cx+8); fallen.setAttribute('y2', cy+2);
+      fallen.setAttribute('stroke', '#f0c890'); fallen.setAttribute('stroke-width', '3');
+      fallen.setAttribute('stroke-linecap', 'round');
+      fallen.style.animation = 'beam-fade 1.5s ease-out forwards';
+      layer.appendChild(fallen);
+      // Rising text indicator
+      const rise = document.createElementNS(ns, 'text');
+      rise.setAttribute('x', cx); rise.setAttribute('y', cy-14);
+      rise.setAttribute('text-anchor', 'middle');
+      rise.setAttribute('font-size', '9'); rise.setAttribute('fill', '#e8d5a3');
+      rise.setAttribute('font-family', 'sans-serif');
+      rise.textContent = 'Rose up ↑';
+      rise.style.animation = 'church-rise 2s ease-out 0.8s forwards';
+      layer.appendChild(rise);
+    }, 900);
+  }
+
+  else if (def.type === 'first_church') {
+    // Church silhouette + dove + gold rays
+    const g = document.createElementNS(ns, 'g');
+    g.style.animation = 'church-rise 3s ease-out forwards';
+    // Building
+    const wall = document.createElementNS(ns, 'rect');
+    wall.setAttribute('x', cx-10); wall.setAttribute('y', cy-16);
+    wall.setAttribute('width', '20'); wall.setAttribute('height', '16');
+    wall.setAttribute('fill', '#d4c4a0'); wall.setAttribute('stroke', '#8a7050'); wall.setAttribute('stroke-width', '1');
+    g.appendChild(wall);
+    // Roof triangle
+    const roof = document.createElementNS(ns, 'polygon');
+    roof.setAttribute('points', `${cx-13},${cy-16} ${cx},${cy-28} ${cx+13},${cy-16}`);
+    roof.setAttribute('fill', '#b04030'); roof.setAttribute('stroke', '#802010'); roof.setAttribute('stroke-width', '1');
+    g.appendChild(roof);
+    // Cross
+    const crossV = document.createElementNS(ns, 'line');
+    crossV.setAttribute('x1',cx); crossV.setAttribute('y1',cy-26); crossV.setAttribute('x2',cx); crossV.setAttribute('y2',cy-18);
+    crossV.setAttribute('stroke','#f1c40f'); crossV.setAttribute('stroke-width','2'); g.appendChild(crossV);
+    const crossH = document.createElementNS(ns, 'line');
+    crossH.setAttribute('x1',cx-4); crossH.setAttribute('y1',cy-23); crossH.setAttribute('x2',cx+4); crossH.setAttribute('y2',cy-23);
+    crossH.setAttribute('stroke','#f1c40f'); crossH.setAttribute('stroke-width','2'); g.appendChild(crossH);
+    // Door
+    const door = document.createElementNS(ns, 'rect');
+    door.setAttribute('x',cx-3); door.setAttribute('y',cy-10);
+    door.setAttribute('width','6'); door.setAttribute('height','10');
+    door.setAttribute('rx','3'); door.setAttribute('fill','#4a3820');
+    g.appendChild(door);
+    layer.appendChild(g);
+    // Gold rays around church
+    for (let i = 0; i < 8; i++) {
+      const a = (i/8)*360 * Math.PI/180;
+      const r1=18, r2=34;
+      const rayEl = document.createElementNS(ns, 'line');
+      rayEl.setAttribute('x1', cx+Math.cos(a)*r1); rayEl.setAttribute('y1', cy-12+Math.sin(a)*r1);
+      rayEl.setAttribute('x2', cx+Math.cos(a)*r2); rayEl.setAttribute('y2', cy-12+Math.sin(a)*r2);
+      rayEl.setAttribute('stroke','#f1c40f'); rayEl.setAttribute('stroke-width','1.5');
+      rayEl.setAttribute('stroke-linecap','round');
+      rayEl.style.animation = `ray-grow 2s ease-out ${i*0.07}s forwards`;
+      rayEl.style.transformOrigin = `${cx+Math.cos(a)*r1}px ${cy-12+Math.sin(a)*r1}px`;
+      layer.appendChild(rayEl);
+    }
+    // Dove path
+    const dove = document.createElementNS(ns, 'path');
+    dove.setAttribute('d', `M${cx-6},${cy-32} C${cx-2},${cy-38} ${cx+6},${cy-37} ${cx+8},${cy-33} C${cx+10},${cy-29} ${cx+6},${cy-27} ${cx},${cy-30} C${cx-4},${cy-28} ${cx-7},${cy-30} ${cx-6},${cy-32}Z`);
+    dove.setAttribute('fill','#fff'); dove.setAttribute('opacity','0.9');
+    dove.style.animation = 'dove-fly 2.5s ease-out 0.5s forwards';
+    layer.appendChild(dove);
+  }
+
+  else if (def.type === 'mars_hill') {
+    // Hill arc (Areopagus) + tiny speaker figure + crowd semicircle + speech waves
+    const hill = document.createElementNS(ns, 'path');
+    hill.setAttribute('d', `M${cx-30},${cy+5} Q${cx},${cy-18} ${cx+30},${cy+5}`);
+    hill.setAttribute('fill','#c8b898'); hill.setAttribute('stroke','#a09070'); hill.setAttribute('stroke-width','1');
+    hill.style.animation = 'church-rise 3s ease-out forwards';
+    layer.appendChild(hill);
+    // Tiny speaker on hilltop
+    const speaker = document.createElementNS(ns, 'g');
+    const head = document.createElementNS(ns, 'circle');
+    head.setAttribute('cx',cx); head.setAttribute('cy',cy-22); head.setAttribute('r','2.5');
+    head.setAttribute('fill','#f0c890');
+    speaker.appendChild(head);
+    const body = document.createElementNS(ns, 'line');
+    body.setAttribute('x1',cx); body.setAttribute('y1',cy-20); body.setAttribute('x2',cx); body.setAttribute('y2',cy-13);
+    body.setAttribute('stroke','#6b5535'); body.setAttribute('stroke-width','2');
+    speaker.appendChild(body);
+    speaker.style.animation = 'church-rise 3s ease-out forwards';
+    layer.appendChild(speaker);
+    // Crowd dots below in semicircle
+    for (let i = 0; i < 12; i++) {
+      const a = (i/11) * Math.PI; // semicircle below
+      const r = 22;
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', cx + Math.cos(Math.PI + a)*r);
+      dot.setAttribute('cy', cy + 5 + Math.abs(Math.sin(a))*8);
+      dot.setAttribute('r','2'); dot.setAttribute('fill','#d4b87a');
+      dot.style.animation = `crowd-bob 0.6s ease-in-out ${i*0.1}s infinite, church-rise 1s ease-out ${i*0.05}s forwards`;
+      layer.appendChild(dot);
+    }
+    // Speech arcs radiating from speaker
+    for (let i = 0; i < 4; i++) {
+      const arc = document.createElementNS(ns, 'circle');
+      arc.setAttribute('cx', cx); arc.setAttribute('cy', cy-18);
+      arc.setAttribute('r','2'); arc.setAttribute('fill','none');
+      arc.setAttribute('stroke','#f1c40f'); arc.setAttribute('stroke-width','1.5');
+      arc.style.animation = `speech-ring 1.2s ease-out ${i*0.3}s infinite`;
+      layer.appendChild(arc);
+    }
+  }
+
+  else if (def.type === 'artemis_riot') {
+    // Temple facade + theater semicircle + fire + crowd
+    // Temple columns
+    const templeBase = document.createElementNS(ns, 'rect');
+    templeBase.setAttribute('x',cx-18); templeBase.setAttribute('y',cy-20);
+    templeBase.setAttribute('width','36'); templeBase.setAttribute('height','20');
+    templeBase.setAttribute('fill','#d4c4a0'); templeBase.setAttribute('stroke','#8a7050'); templeBase.setAttribute('stroke-width','1');
+    templeBase.style.animation = 'church-rise 0.5s ease-out forwards';
+    layer.appendChild(templeBase);
+    // 5 columns
+    for (let i = 0; i < 5; i++) {
+      const col = document.createElementNS(ns, 'rect');
+      col.setAttribute('x', cx-16+i*8); col.setAttribute('y', cy-20);
+      col.setAttribute('width','2.5'); col.setAttribute('height','20');
+      col.setAttribute('fill','#a09070');
+      col.style.animation = 'church-rise 0.5s ease-out forwards';
+      layer.appendChild(col);
+    }
+    // Temple pediment
+    const pediment = document.createElementNS(ns, 'polygon');
+    pediment.setAttribute('points', `${cx-20},${cy-20} ${cx},${cy-32} ${cx+20},${cy-20}`);
+    pediment.setAttribute('fill','#c8b898'); pediment.setAttribute('stroke','#8a7050'); pediment.setAttribute('stroke-width','1');
+    pediment.style.animation = 'church-rise 0.5s ease-out forwards';
+    layer.appendChild(pediment);
+    // Theater arc (crowd)
+    const theater = document.createElementNS(ns, 'path');
+    theater.setAttribute('d', `M${cx-30},${cy+15} A30,15 0 0,1 ${cx+30},${cy+15}`);
+    theater.setAttribute('fill','rgba(100,80,50,0.3)'); theater.setAttribute('stroke','#8a7050'); theater.setAttribute('stroke-width','1');
+    theater.style.animation = 'church-rise 1s ease-out 0.2s forwards';
+    layer.appendChild(theater);
+    // Angry crowd dots in theater
+    for (let i = 0; i < 16; i++) {
+      const a = (i/15) * Math.PI;
+      const r = 24 + (i%3)*5;
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', cx-30+i*4); dot.setAttribute('cy', cy+10-Math.sin(a)*8);
+      dot.setAttribute('r','1.8'); dot.setAttribute('fill', i%2===0?'#c8a060':'#a08040');
+      dot.style.animation = `crowd-bob ${0.2+Math.random()*0.3}s ease-in-out ${i*0.05}s infinite`;
+      layer.appendChild(dot);
+    }
+    // Fire flames below temple
+    const fireColors = ['#e74c3c','#e67e22','#f1c40f'];
+    for (let i = 0; i < 6; i++) {
+      const flame = document.createElementNS(ns, 'polygon');
+      const fx = cx-12+i*5, fy = cy-1;
+      flame.setAttribute('points', `${fx},${fy} ${fx-3},${fy-8-i%2*4} ${fx+3},${fy-8-i%3*3}`);
+      flame.setAttribute('fill', fireColors[i%3]);
+      flame.setAttribute('opacity','0.85');
+      flame.style.animation = `flame-flicker ${0.3+i*0.07}s ease-in-out ${i*0.05}s infinite`;
+      layer.appendChild(flame);
+    }
+  }
+
+  else if (def.type === 'shipwreck') {
+    // Actual tornado/whirlwind funnel + waves + lightning + boat shakes
+    shakeEffect(3000);
+    // Dark storm cloud at top
+    const cloud = document.createElementNS(ns, 'ellipse');
+    cloud.setAttribute('cx', cx); cloud.setAttribute('cy', cy-30);
+    cloud.setAttribute('rx','22'); cloud.setAttribute('ry','9');
+    cloud.setAttribute('fill','rgba(40,50,80,0.85)');
+    layer.appendChild(cloud);
+    // Tornado funnel — left and right sides of cone narrowing to point
+    const funnel = document.createElementNS(ns, 'g');
+    funnel.setAttribute('transform-origin', `${cx}px ${cy-30}px`);
+    funnel.style.animation = 'funnel-sway 0.5s ease-in-out infinite';
+    const funnelShape = document.createElementNS(ns, 'path');
+    funnelShape.setAttribute('d',
+      `M${cx-20},${cy-22} C${cx-16},${cy-12} ${cx-6},${cy-4} ${cx-2},${cy+8} L${cx+2},${cy+8} C${cx+6},${cy-4} ${cx+16},${cy-12} ${cx+20},${cy-22} Z`
+    );
+    funnelShape.setAttribute('fill','rgba(80,100,150,0.6)');
+    funnelShape.setAttribute('stroke','rgba(100,140,200,0.8)');
+    funnelShape.setAttribute('stroke-width','1');
+    funnel.appendChild(funnelShape);
+    // Spiral lines inside funnel
+    for (let i = 0; i < 4; i++) {
+      const sw = document.createElementNS(ns, 'path');
+      const y0 = cy-20+i*6, xOff = 14-i*3;
+      sw.setAttribute('d', `M${cx-xOff},${y0} Q${cx},${y0-3} ${cx+xOff},${y0}`);
+      sw.setAttribute('fill','none'); sw.setAttribute('stroke','rgba(150,180,230,0.7)');
+      sw.setAttribute('stroke-width','1.2');
+      funnel.appendChild(sw);
+    }
+    layer.appendChild(funnel);
+    // Rotating debris specks around funnel mid-point
+    const debrisG = document.createElementNS(ns, 'g');
+    debrisG.style.transformOrigin = `${cx}px ${cy-8}px`;
+    debrisG.style.animation = 'tornado-spin 0.6s linear infinite';
+    for (let i = 0; i < 6; i++) {
+      const a = (i/6)*2*Math.PI;
+      const r = 14;
+      const d = document.createElementNS(ns, 'rect');
+      d.setAttribute('x', cx+Math.cos(a)*r-1.5); d.setAttribute('y', cy-8+Math.sin(a)*r-1.5);
+      d.setAttribute('width','3'); d.setAttribute('height','3');
+      d.setAttribute('fill','#a0a0c0'); d.setAttribute('rx','0.5');
+      debrisG.appendChild(d);
+    }
+    layer.appendChild(debrisG);
+    // Rain streaks
+    for (let i = 0; i < 10; i++) {
+      const rain = document.createElementNS(ns, 'line');
+      const rx = cx-25+i*6, ry = cy-28+Math.random()*10;
+      rain.setAttribute('x1', rx); rain.setAttribute('y1', ry);
+      rain.setAttribute('x2', rx+2); rain.setAttribute('y2', ry+12);
+      rain.setAttribute('stroke','rgba(120,160,220,0.7)'); rain.setAttribute('stroke-width','1');
+      rain.style.animation = `beam-fade 0.4s linear ${i*0.07}s infinite`;
+      layer.appendChild(rain);
+    }
+    // Wave lines on sea surface
+    for (let i = 0; i < 3; i++) {
+      const wave = document.createElementNS(ns, 'path');
+      const wy = cy+10+i*6;
+      wave.setAttribute('d', `M${cx-30},${wy} Q${cx-20},${wy-5} ${cx-10},${wy} Q${cx},${wy+5} ${cx+10},${wy} Q${cx+20},${wy-5} ${cx+30},${wy}`);
+      wave.setAttribute('fill','none'); wave.setAttribute('stroke','rgba(100,160,220,0.6)');
+      wave.setAttribute('stroke-width','1.5');
+      wave.style.animation = `funnel-sway ${0.4+i*0.1}s ease-in-out ${i*0.12}s infinite`;
+      layer.appendChild(wave);
+    }
+    // Lightning bolt
+    const bolt = document.createElementNS(ns, 'polyline');
+    bolt.setAttribute('points', `${cx+5},${cy-38} ${cx-2},${cy-24} ${cx+6},${cy-20} ${cx-3},${cy-8}`);
+    bolt.setAttribute('fill','none'); bolt.setAttribute('stroke','#f1c40f');
+    bolt.setAttribute('stroke-width','2.5'); bolt.setAttribute('stroke-linecap','round');
+    bolt.style.animation = 'beam-fade 0.3s ease-in-out 0.2s 5 alternate';
+    layer.appendChild(bolt);
+  }
+
+  // Auto-clear after 4s
+  setTimeout(() => {
+    layer.innerHTML = '';
+    const t = document.getElementById('traveler');
+    if (t) t.style.animation = '';
+  }, 4000);
+
+  // Show large event scene panel on right side
+  const journeyColor = currentJourney ? JOURNEY_COLORS[currentJourney] : '#f1c40f';
+  showEventScene(def.type, journeyColor);
+}
+
+// Event listeners
+playPauseBtn.addEventListener('click', togglePlayPause);
+
+document.getElementById('j1-btn').addEventListener('click', () => startJourney('J1'));
+document.getElementById('j2-btn').addEventListener('click', () => startJourney('J2'));
+document.getElementById('j3-btn').addEventListener('click', () => startJourney('J3'));
+document.getElementById('j4-btn').addEventListener('click', () => startJourney('J4'));
+
+// Speed toggle: 1× → 2× → 4× → 1×
+let speedMultiplier = 1;
+const SPEED_STEPS = [1, 2, 4];
+document.getElementById('speed-btn').addEventListener('click', () => {
+  const idx = (SPEED_STEPS.indexOf(speedMultiplier) + 1) % SPEED_STEPS.length;
+  speedMultiplier = SPEED_STEPS[idx];
+  document.getElementById('speed-text').textContent = speedMultiplier + '×';
+  // Adjust startTime so progress is continuous at new speed
+  if (isPlaying && startTime !== null) {
+    const path = paths[currentJourney];
+    const segments = getJourneySegments(currentJourney);
+    const length = path.getTotalLength();
+    const currentOffset = parseFloat(path.style.strokeDashoffset) || 0;
+    const currentProgress = 1 - currentOffset / length;
+    const totalDuration = segments.length * 2000 / speedMultiplier;
+    startTime = performance.now() - currentProgress * totalDuration;
+  }
+});
+
+// Splash screen — tap to dismiss
+(function() {
+  const splash = document.getElementById('splash');
+  splash.addEventListener('click', () => {
+    splash.style.display = 'none';
+    // Auto-start last played journey or J1
+    const last = localStorage.getItem('paul_last_journey') || 'J1';
+    startJourney(last);
+  });
+})();
+
+// Wrap startJourney to save last journey
+const _origStartJourney = startJourney;
+startJourney = function(journey) {
+  _origStartJourney(journey);
+  try { localStorage.setItem('paul_last_journey', journey); } catch(e) {}
+};
+
+closeBtn.addEventListener('click', hideInfoPanel);
+
+// Step to a specific segment index (pauses animation, draws path to that point)
+function stepToSegment(index) {
+  if (!currentJourney) { startJourney('J1'); return; }
+  const segments = getJourneySegments(currentJourney);
+  if (index < 0 || index >= segments.length) return;
+  stopAnimation();
+  currentSegmentIndex = index;
+  const path = paths[currentJourney];
+  const length = path.getTotalLength();
+  // Use geographic boundary fraction if available, else equal division
+  const frac = segmentBoundaries.length > index
+    ? segmentBoundaries[index]
+    : (index + 1) / segments.length;
+  path.style.strokeDasharray = length;
+  path.style.strokeDashoffset = length * (1 - frac);
+  const segMode = segments[index].mode;
+  updateTraveler(path, frac, segMode);
+  updateTimeline(frac);
+  updateInfoPanel(segments[index], index, segments.length);
+  // Trigger event effect using CITY_ID_MAP (not brittle string transform)
+  const stepSeg = segments[index];
+  const stepMapping = CITY_ID_MAP[stepSeg.to];
+  let sx, sy;
+  if (stepMapping && stepMapping.id) {
+    const el = document.getElementById(stepMapping.id);
+    const dot = el && el.querySelector('.city-dot');
+    if (dot) { sx = parseFloat(dot.getAttribute('cx')); sy = parseFloat(dot.getAttribute('cy')); }
+  } else if (stepMapping) { sx = stepMapping.cx; sy = stepMapping.cy; }
+  if (sx !== undefined) triggerEffect(stepSeg.id, sx, sy);
+}
+
+function stepNext() {
+  if (!currentJourney) { startJourney('J1'); return; }
+  stepToSegment(Math.min(currentSegmentIndex + 1, getJourneySegments(currentJourney).length - 1));
+}
+
+function stepPrev() {
+  if (!currentJourney) return;
+  stepToSegment(Math.max(currentSegmentIndex - 1, 0));
+}
+
+document.getElementById('prev-btn').addEventListener('click', (e) => { e.stopPropagation(); stepPrev(); });
+document.getElementById('next-btn').addEventListener('click', (e) => { e.stopPropagation(); stepNext(); });
+
+// City click handlers
+document.querySelectorAll('.city-group').forEach(cityGroup => {
+  cityGroup.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const cityName = cityGroup.getAttribute('data-name');
+    showCityEvents(cityName);
+  });
+});
+
+// Hide panel when clicking elsewhere
+document.addEventListener('click', (e) => {
+  if (!infoPanel.contains(e.target) && !e.target.closest('.city-group')) {
+    hideInfoPanel();
+  }
+});
+
+</script>
+</body>
+</html>
